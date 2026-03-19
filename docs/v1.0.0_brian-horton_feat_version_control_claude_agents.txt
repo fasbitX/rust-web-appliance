@@ -1,0 +1,41 @@
+Version: v1.0.0
+Author: brian-horton
+Type: feat
+Date: 2026-03-19
+
+ISSUES
+------
+1. No version control system — no way to track releases or enforce semver.
+2. No CLAUDE.md project protocol — Claude agents had no project-specific context.
+3. No specialized agents — no team structure for delegating work.
+4. No .gitignore — risk of committing build artifacts and secrets.
+5. Cargo.toml version was 0.1.0, mismatched with project maturity.
+
+CHANGES
+-------
+1. Created version.json as the project-level source of truth for semver (1.0.0).
+2. Synced Cargo.toml version to 1.0.0 to match version.json.
+3. Created CLAUDE.md with full project protocol:
+   - Versioning logic (x.y.z with rules for each level)
+   - Mandatory execution flow (build, bump, release notes, commit, push)
+   - GitHub commit format: "vx.y.z brian-horton {type}: {description}"
+   - Release notes requirement for every version bump
+   - Architecture quick reference and key constraints
+   - HermitOS-specific rules (no tokio, no mmap, no C FFI)
+4. Created 8 specialized Claude agents in .claude/agents/:
+   - team-leader.md  — orchestrator, delegates to all agents
+   - backend.md      — Rust API handlers, Context pattern, route registration
+   - storage.md      — KV store, VirtioFS, data modeling
+   - frontend.md     — vanilla HTML/CSS/JS, drop zone model
+   - designer.md     — dark theme dashboard design system
+   - qa.md           — QEMU-based testing, curl integration tests
+   - security.md     — unikernel attack surface, path traversal, input validation
+   - dev-ops.md      — version control, build pipeline, image creation
+   - kernel.md       — HermitOS internals, boot issues, virtio, smoltcp
+5. Created .gitignore (excludes target/, .img, hermit-loader, .claude/, lock files).
+6. Updated .claude/settings.local.json with expanded permissions.
+
+BUILD STATUS
+------------
+cargo build --target x86_64-unknown-hermit --release: SUCCESS (0 errors, 0 warnings)
+Binary: 1.5MB ELF (x86_64, static-pie linked, stripped)

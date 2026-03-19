@@ -21,8 +21,10 @@ Thumbs.db
 # LibreOffice lock files
 .~lock.*
 
-# Claude Code
-.claude/
+# Claude Code (keep agents, ignore local settings)
+.claude/settings.local.json
+.claude/projects/
+.claude/memory/
 
 # VirtioFS temp
 /tmp/
