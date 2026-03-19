@@ -1,0 +1,16 @@
+Version: 1.1.1
+Type: Fix
+Date: 2026-03-19
+
+Issues:
+  1. QEMU run script still forwarded port 9090→8080 (HTTP), but the server
+     now listens on port 8443 (HTTPS). curl to localhost:8443 or :9090
+     would fail with "Couldn't connect to server."
+
+Changes:
+  1. Updated scripts/run-qemu.sh port forwarding:
+     - Changed from: localhost:9090 → guest:8080
+     - Changed to:   localhost:9443 → guest:8443
+  2. Updated comments and echo messages to reflect HTTPS.
+
+Build Status: PASS — cargo build --target x86_64-unknown-hermit compiles with zero errors.

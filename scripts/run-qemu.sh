@@ -14,7 +14,7 @@
 #   ./scripts/run-qemu.sh --virtiofs   # TAP + VirtioFS (full stack)
 #
 # Port forwarding (basic mode):
-#   Host http://localhost:9090 → Guest :8080
+#   Host https://localhost:9443 → Guest :8443
 # ═══════════════════════════════════════════════════════════════════
 set -euo pipefail
 
@@ -98,13 +98,13 @@ fi
 case "$MODE" in
     --basic)
         # User-mode networking with port forwarding
-        # No root required. HTTP accessible at localhost:9090
+        # No root required. HTTPS accessible at localhost:9443
         # RTL8139 NIC is REQUIRED for QEMU user-mode (SLIRP) networking.
         # DHCP (dhcpv4 feature) handles IP assignment — SLIRP assigns 10.0.2.15.
-        echo "[qemu] User-mode networking: localhost:9090 → guest:8080"
+        echo "[qemu] User-mode networking: localhost:9443 → guest:8443 (HTTPS)"
         echo "[qemu] NIC: RTL8139 (required for SLIRP)"
         exec "${QEMU_BASE[@]}" \
-            -netdev "user,id=u1,hostfwd=tcp::9090-:8080" \
+            -netdev "user,id=u1,hostfwd=tcp::9443-:8443" \
             -device "rtl8139,netdev=u1"
         ;;
 
