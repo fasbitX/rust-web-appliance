@@ -1,0 +1,20 @@
+{
+    "collections": {
+        "products": {
+            "fields": {
+                "name":      { "type": "string", "required": true },
+                "price":     { "type": "number", "required": true },
+                "category":  { "type": "string" },
+                "in_stock":  { "type": "bool" }
+            }
+        },
+        "blog_posts": {
+            "fields": {
+                "title":     { "type": "string", "required": true },
+                "body":      { "type": "string", "required": true },
+                "author":    { "type": "string" },
+                "tags":      { "type": "string" }
+            }
+        }
+    }
+}

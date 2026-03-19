@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Rust Web Appliance</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Rust Web Appliance</h1>
+        <p class="subtitle">HermitOS Unikernel &bull; Single Binary &bull; Zero OS Bloat</p>
+
+        <div id="status" class="status loading">CONNECTING...</div>
+
+        <div id="info" class="info-card hidden"></div>
+
+        <h2>Key-Value Store</h2>
+        <div class="kv-controls">
+            <input type="text" id="kv-key" placeholder="key" />
+            <input type="text" id="kv-value" placeholder="value (JSON)" />
+            <button onclick="kvPut()">PUT</button>
+            <button onclick="kvGet()">GET</button>
+            <button onclick="kvDelete()">DELETE</button>
+        </div>
+        <pre id="kv-result" class="result-box">Ready.</pre>
+
+        <h2>Stored Keys</h2>
+        <pre id="kv-keys" class="result-box">Loading...</pre>
+    </div>
+
+    <script src="/js/app.js"></script>
+</body>
+</html>

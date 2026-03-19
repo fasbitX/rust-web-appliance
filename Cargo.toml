@@ -1,0 +1,31 @@
+[package]
+name = "rust-web-appliance"
+version = "0.1.0"
+edition = "2024"
+description = "All-Rust unikernel web server appliance on HermitOS"
+
+[profile.dev]
+opt-level = 1       # hermit requires at least opt-level 1
+
+[profile.release]
+opt-level = 3
+lto = false
+strip = "symbols"
+
+# ── HermitOS kernel linkage ──────────────────────────────────────────
+# The `hermit` crate IS the kernel. Linking it registers the allocator,
+# panic handler, and all virtio drivers before main() runs.
+[target.'cfg(target_os = "hermit")'.dependencies]
+hermit = { git = "https://github.com/hermit-os/hermit-rs.git", tag = "hermit-0.13.0", default-features = false, features = [
+    "pci",          # PCI bus enumeration (finds virtio devices)
+    "tcp",          # smoltcp TCP/IP stack inside the kernel
+    "dhcpv4",       # DHCP lease on boot via virtio-net
+    "virtio-fs",    # VirtioFS for host-shared filesystem
+] }
+
+# ── Application dependencies ────────────────────────────────────────
+[dependencies]
+tiny_http = "0.12"          # Synchronous HTTP server (proven on HermitOS)
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"            # JSON serialization for flat-file storage
+log = "0.4"

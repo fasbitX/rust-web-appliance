@@ -1,0 +1,181 @@
+/* ═══════════════════════════════════════════════════════════════════
+   Rust Web Appliance — Default Stylesheet
+   Drop your own CSS here or replace this file entirely.
+   ═══════════════════════════════════════════════════════════════════ */
+
+:root {
+    --bg:         #0a0a0a;
+    --surface:    #111111;
+    --border:     #2a2a2a;
+    --text:       #e0e0e0;
+    --text-muted: #888888;
+    --accent:     #ff6b35;
+    --green:      #4caf50;
+    --red:        #ef5350;
+    --blue:       #5b9bd5;
+    --mono:       'SF Mono', 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 2rem 1rem;
+}
+
+.container {
+    max-width: 680px;
+    width: 100%;
+}
+
+h1 {
+    font-size: 2rem;
+    color: var(--accent);
+    margin-bottom: 0.25rem;
+}
+
+h2 {
+    font-size: 1.1rem;
+    color: var(--text-muted);
+    margin-top: 2rem;
+    margin-bottom: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.subtitle {
+    color: var(--text-muted);
+    margin-bottom: 1.5rem;
+}
+
+/* ── Status Indicator ────────────────────────────────────────────── */
+
+.status {
+    display: inline-block;
+    padding: 0.4rem 1rem;
+    border-radius: 6px;
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+
+.status.ok {
+    background: #1a3a1a;
+    color: var(--green);
+}
+
+.status.error {
+    background: #3a1a1a;
+    color: var(--red);
+}
+
+.status.loading {
+    background: #1a2a3a;
+    color: var(--blue);
+}
+
+/* ── Info Card ───────────────────────────────────────────────────── */
+
+.info-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    line-height: 1.6;
+    margin-bottom: 1rem;
+}
+
+.info-card .label {
+    color: var(--text-muted);
+}
+
+.info-card .value {
+    color: var(--accent);
+}
+
+/* ── KV Controls ─────────────────────────────────────────────────── */
+
+.kv-controls {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.kv-controls input {
+    flex: 1;
+    min-width: 120px;
+    padding: 0.5rem 0.75rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.kv-controls input:focus {
+    border-color: var(--accent);
+}
+
+.kv-controls input::placeholder {
+    color: #555;
+}
+
+.kv-controls button {
+    padding: 0.5rem 1rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+}
+
+.kv-controls button:hover {
+    background: #1a1a1a;
+    border-color: var(--accent);
+}
+
+/* ── Result Box ──────────────────────────────────────────────────── */
+
+.result-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    font-family: var(--mono);
+    font-size: 0.82rem;
+    line-height: 1.5;
+    color: var(--text-muted);
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+    margin-top: 0.5rem;
+}
+
+/* ── Utilities ───────────────────────────────────────────────────── */
+
+.hidden {
+    display: none;
+}
+
+/* ── Responsive ──────────────────────────────────────────────────── */
+
+@media (max-width: 480px) {
+    h1 { font-size: 1.5rem; }
+    .kv-controls { flex-direction: column; }
+    .kv-controls input { min-width: 100%; }
+}

@@ -1,0 +1,28 @@
+# Build artifacts
+/target/
+*.img
+
+# Hermit loader binary (downloaded, not committed)
+hermit-loader-x86_64
+hermit-loader
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# IDE
+.idea/
+.vscode/
+*.code-workspace
+
+# LibreOffice lock files
+.~lock.*
+
+# Claude Code
+.claude/
+
+# VirtioFS temp
+/tmp/
