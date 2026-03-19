@@ -1,0 +1,29 @@
+Version: 1.1.2
+Type: Fix
+Date: 2026-03-19
+
+Issues:
+  1. Intermittent response loss: some endpoints (e.g., /api/info, auth denial
+     responses) returned empty output to curl despite the server processing
+     the request. Root cause: write_response() used multiple small write!()
+     calls, each producing a separate TLS record. smoltcp would close the
+     TCP connection before all TLS records were transmitted.
+  2. TlsWriter missing Read impl: HttpRequest::parse() requires a Read stream
+     but TlsWriter only implemented Write, causing a compile error.
+
+Changes:
+  1. Rewrote http::write_response() to build the entire HTTP response
+     (headers + body) in a single Vec buffer and send it with one write_all()
+     call. This produces a single TLS record instead of 6-7 separate ones,
+     ensuring smoltcp transmits the complete response before connection close.
+  2. Added Read trait implementation to TlsWriter, delegating to the inner
+     StreamOwned.
+
+Build Status: PASS — cargo build --target x86_64-unknown-hermit --release compiles with zero errors.
+
+Test Results (all verified via curl -vk through QEMU SLIRP networking):
+  - GET /api/health (public)           → 200 OK ✓
+  - GET /api/info (authenticated)      → 200 OK ✓
+  - GET /api/info (no auth)            → 401 Unauthorized ✓
+  - PUT /api/kv/hello (authenticated)  → 200 OK ✓
+  - All responses show clean TLS close_notify exchange.

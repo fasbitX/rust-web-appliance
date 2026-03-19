@@ -122,6 +122,12 @@ impl HttpRequest {
 }
 
 /// Write an HTTP/1.1 response to any writable stream.
+///
+/// Builds the entire response (headers + body) in a single buffer
+/// and sends it with one write_all + flush. This produces a single
+/// TLS record, which is critical for smoltcp reliability — multiple
+/// small writes can create multiple TLS records that may not all
+/// be transmitted before the connection closes.
 pub fn write_response<W: Write + ?Sized>(
     writer: &mut W,
     status: u16,
@@ -130,13 +136,16 @@ pub fn write_response<W: Write + ?Sized>(
 ) -> std::io::Result<()> {
     let reason = status_reason(status);
 
-    write!(writer, "HTTP/1.1 {} {}\r\n", status, reason)?;
-    write!(writer, "Content-Type: {}\r\n", content_type)?;
-    write!(writer, "Content-Length: {}\r\n", body.len())?;
-    write!(writer, "Connection: close\r\n")?;
-    write!(writer, "Server: RustWebAppliance\r\n")?;
-    write!(writer, "\r\n")?;
-    writer.write_all(body)?;
+    let header = format!(
+        "HTTP/1.1 {} {}\r\nContent-Type: {}\r\nContent-Length: {}\r\nConnection: close\r\nServer: RustWebAppliance\r\n\r\n",
+        status, reason, content_type, body.len()
+    );
+
+    let mut response = Vec::with_capacity(header.len() + body.len());
+    response.extend_from_slice(header.as_bytes());
+    response.extend_from_slice(body);
+
+    writer.write_all(&response)?;
     writer.flush()?;
 
     Ok(())

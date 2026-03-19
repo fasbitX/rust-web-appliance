@@ -42,6 +42,11 @@ pub fn init() -> Result<Arc<ServerConfig>, Box<dyn std::error::Error>> {
 
     // Build rustls config with pure-Rust crypto provider
     let provider = rustls_rustcrypto::provider();
+    println!("[tls] Crypto provider: rustls-rustcrypto (pure Rust)");
+    println!("[tls] Cipher suites: {}", provider.cipher_suites.len());
+    for cs in &provider.cipher_suites {
+        println!("[tls]   - {:?}", cs.suite());
+    }
 
     let config = ServerConfig::builder_with_provider(Arc::new(provider))
         .with_safe_default_protocol_versions()?

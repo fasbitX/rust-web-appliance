@@ -1,13 +1,9 @@
 // ═══════════════════════════════════════════════════════════════════
 // HTTPS Server — TLS + HTTP with thread-per-connection workers
 // ═══════════════════════════════════════════════════════════════════
-//
-// Accepts TCP connections, performs TLS handshake via rustls with
-// pure-Rust crypto, parses HTTP/1.1 requests, then dispatches
-// through the authentication + three-tier routing pipeline.
-// ═══════════════════════════════════════════════════════════════════
 
-use std::net::TcpListener;
+use std::io::{Read, Write};
+use std::net::{Shutdown, TcpListener, TcpStream};
 use std::sync::Arc;
 use std::thread;
 
@@ -21,6 +17,50 @@ use crate::security::SecurityConfig;
 use crate::storage::Storage;
 
 const NUM_WORKERS: usize = 4;
+
+/// Wrapper around StreamOwned that sends TLS close_notify on drop.
+/// Without this, smoltcp may RST the TCP connection before the
+/// response data reaches the client.
+struct TlsWriter {
+    stream: Option<StreamOwned<ServerConnection, TcpStream>>,
+}
+
+impl TlsWriter {
+    fn new(stream: StreamOwned<ServerConnection, TcpStream>) -> Self {
+        TlsWriter {
+            stream: Some(stream),
+        }
+    }
+}
+
+impl Read for TlsWriter {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        self.stream.as_mut().unwrap().read(buf)
+    }
+}
+
+impl Write for TlsWriter {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.stream.as_mut().unwrap().write(buf)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.stream.as_mut().unwrap().flush()
+    }
+}
+
+impl Drop for TlsWriter {
+    fn drop(&mut self) {
+        if let Some(mut stream) = self.stream.take() {
+            // Send TLS close_notify alert
+            stream.conn.send_close_notify();
+            // Flush the close_notify to the TCP socket
+            let _ = stream.conn.complete_io(&mut stream.sock);
+            // Graceful TCP shutdown (FIN, not RST)
+            let _ = stream.sock.shutdown(Shutdown::Write);
+        }
+    }
+}
 
 pub fn run(
     bind_addr: &str,
@@ -38,7 +78,7 @@ pub fn run(
     let routes: Arc<Vec<Route>> = Arc::new(api::routes());
     println!("[https] {} compiled Rust routes registered", routes.len());
 
-    // Tier 2: Config-driven engine (reads backend/endpoints.json)
+    // Tier 2: Config-driven engine
     println!("[https] Loading config-driven API engine...");
     let config_engine: Arc<Option<ConfigEngine>> = Arc::new(ConfigEngine::load());
     if config_engine.is_some() {
@@ -60,35 +100,62 @@ pub fn run(
             println!("[https] Worker {} started", worker_id);
             loop {
                 // Accept TCP connection
-                let (tcp_stream, peer_addr) = match listener.accept() {
+                let (mut tcp_stream, peer_addr) = match listener.accept() {
                     Ok(conn) => conn,
                     Err(e) => {
-                        eprintln!("[https] Worker {} accept error: {}", worker_id, e);
+                        println!("[https] Worker {} accept error: {}", worker_id, e);
                         continue;
                     }
                 };
 
-                // TLS handshake
-                let conn = match ServerConnection::new(Arc::clone(&tls_config)) {
+                // Create TLS server connection
+                let mut conn = match ServerConnection::new(Arc::clone(&tls_config)) {
                     Ok(c) => c,
                     Err(e) => {
-                        eprintln!("[https] Worker {} TLS setup error: {}", worker_id, e);
+                        println!("[https] Worker {} TLS setup error: {}", worker_id, e);
                         continue;
                     }
                 };
 
-                let mut tls_stream = StreamOwned::new(conn, tcp_stream);
+                // Explicit TLS handshake
+                let handshake_ok = loop {
+                    if !conn.is_handshaking() {
+                        break true;
+                    }
+                    match conn.complete_io(&mut tcp_stream) {
+                        Ok((rd, wr)) => {
+                            if rd == 0 && wr == 0 {
+                                break false;
+                            }
+                        }
+                        Err(e) => {
+                            println!(
+                                "[https] Worker {} TLS handshake failed for {}: {}",
+                                worker_id, peer_addr, e
+                            );
+                            break false;
+                        }
+                    }
+                };
 
-                // Parse HTTP request over TLS
-                let request = match HttpRequest::parse(&mut tls_stream) {
+                if !handshake_ok {
+                    continue;
+                }
+
+                // Wrap in TlsWriter (handles clean shutdown on drop)
+                let tls_stream = StreamOwned::new(conn, tcp_stream);
+                let mut tls_writer = TlsWriter::new(tls_stream);
+
+                // Parse HTTP request
+                let request = match HttpRequest::parse(&mut tls_writer) {
                     Ok(req) => req,
                     Err(e) => {
-                        eprintln!(
+                        println!(
                             "[https] Worker {} parse error from {}: {}",
                             worker_id, peer_addr, e
                         );
                         let _ = crate::http::write_response(
-                            &mut tls_stream,
+                            &mut tls_writer,
                             400,
                             "application/json",
                             br#"{"error":"bad request"}"#,
@@ -103,7 +170,7 @@ pub fn run(
                 );
 
                 // Dispatch through auth + three-tier router
-                let writer: Box<dyn std::io::Write + Send> = Box::new(tls_stream);
+                let writer: Box<dyn Write + Send> = Box::new(tls_writer);
                 router::handle_request(
                     request,
                     writer,

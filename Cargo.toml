@@ -1,6 +1,6 @@
 [package]
 name = "rust-web-appliance"
-version = "1.1.1"
+version = "1.1.2"
 edition = "2024"
 description = "All-Rust unikernel web server appliance on HermitOS"
 
@@ -33,4 +33,4 @@ log = "0.4"
 httparse = "1"                      # Pure-Rust HTTP/1.1 parser (replaces tiny_http)
 rustls = { version = "0.23", default-features = false, features = ["std", "tls12", "logging"] }
 rustls-pemfile = "2"                # Pure-Rust PEM certificate loader
-rustls-rustcrypto = "0.0.2-alpha"   # Pure-Rust crypto provider (no ring, no C)
+rustls-rustcrypto = "0.0.2-alpha"   # Pure-Rust crypto provider (hermit-compatible)
