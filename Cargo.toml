@@ -1,6 +1,6 @@
 [package]
 name = "rust-web-appliance"
-version = "1.0.0"
+version = "1.0.1"
 edition = "2024"
 description = "All-Rust unikernel web server appliance on HermitOS"
 
@@ -20,6 +20,7 @@ hermit = { git = "https://github.com/hermit-os/hermit-rs.git", tag = "hermit-0.1
     "pci",          # PCI bus enumeration (finds virtio devices)
     "tcp",          # smoltcp TCP/IP stack inside the kernel
     "dhcpv4",       # DHCP lease on boot via virtio-net
+    "rtl8139",      # RTL8139 NIC driver — required for QEMU user-mode (SLIRP) networking
     "virtio-fs",    # VirtioFS for host-shared filesystem
 ] }
 

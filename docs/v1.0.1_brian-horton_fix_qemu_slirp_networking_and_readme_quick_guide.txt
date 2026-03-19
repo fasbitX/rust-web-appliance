@@ -1,0 +1,19 @@
+Version: 1.0.1
+
+Issues:
+- QEMU user-mode (SLIRP) networking was non-functional: curl connections were reset by guest
+- virtio-net-pci NIC driver is incompatible with QEMU SLIRP networking on HermitOS
+- Duplicate -cpu flags in run-qemu.sh when KVM was enabled
+- Port 8080 was already in use on development machine
+- README lacked a quick reference table for common commands
+
+Changes:
+- Added "rtl8139" feature to hermit crate in Cargo.toml (required for SLIRP)
+- Changed --basic mode in run-qemu.sh to use rtl8139 NIC instead of virtio-net-pci
+- Fixed duplicate -cpu flag: base args no longer include -cpu, set conditionally by KVM detection
+- Changed default port forwarding from host:8080 to host:9090 in run-qemu.sh
+- Updated README.md with Quick Reference table (Build, Run, Test, Quit commands)
+- Updated README.md port references from 8080 to 9090 for basic mode
+- Noted RTL8139 requirement in QEMU networking documentation
+
+Build Status: Compiles successfully for x86_64-unknown-hermit (debug and release)

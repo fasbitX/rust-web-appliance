@@ -171,23 +171,23 @@ Edit `backend/endpoints.json`:
 
 ```bash
 # Create
-curl -X POST http://localhost:8080/api/products \
+curl -X POST http://localhost:9090/api/products \
   -d '{"name":"Widget","price":9.99,"category":"gadgets","in_stock":true}'
 # Returns: {"id":"18e5f3a1b0c00000","name":"Widget","price":9.99,...,"created_at":1710806400}
 
 # List
-curl http://localhost:8080/api/products
+curl http://localhost:9090/api/products
 # Returns: {"collection":"products","count":1,"items":[...]}
 
 # Get by ID
-curl http://localhost:8080/api/products/18e5f3a1b0c00000
+curl http://localhost:9090/api/products/18e5f3a1b0c00000
 
 # Update
-curl -X PUT http://localhost:8080/api/products/18e5f3a1b0c00000 \
+curl -X PUT http://localhost:9090/api/products/18e5f3a1b0c00000 \
   -d '{"price":12.99}'
 
 # Delete
-curl -X DELETE http://localhost:8080/api/products/18e5f3a1b0c00000
+curl -X DELETE http://localhost:9090/api/products/18e5f3a1b0c00000
 ```
 
 **Built-in features:**
@@ -403,7 +403,7 @@ Output: `target/x86_64-unknown-hermit/release/rust-web-appliance` (1.5 MB)
 
 ```bash
 # Basic mode -- user networking, no root needed
-# HTTP available at http://localhost:8080
+# HTTP available at http://localhost:9090
 ./scripts/run-qemu.sh
 
 # TAP networking -- guest gets real IP on 10.0.5.x subnet
@@ -417,28 +417,28 @@ Output: `target/x86_64-unknown-hermit/release/rust-web-appliance` (1.5 MB)
 
 ```bash
 # Dashboard
-curl http://localhost:8080/
+curl http://localhost:9090/
 
 # System endpoints
-curl http://localhost:8080/api/health
-curl http://localhost:8080/api/info
+curl http://localhost:9090/api/health
+curl http://localhost:9090/api/info
 
 # Raw KV store
-curl -X PUT http://localhost:8080/api/kv/greeting -d '"Hello, Unikernel!"'
-curl http://localhost:8080/api/kv/greeting
-curl http://localhost:8080/api/kv
+curl -X PUT http://localhost:9090/api/kv/greeting -d '"Hello, Unikernel!"'
+curl http://localhost:9090/api/kv/greeting
+curl http://localhost:9090/api/kv
 
 # Config-driven collections (auto-generated from endpoints.json)
-curl -X POST http://localhost:8080/api/products \
+curl -X POST http://localhost:9090/api/products \
   -d '{"name":"Widget","price":9.99,"in_stock":true}'
-curl http://localhost:8080/api/products
-curl -X POST http://localhost:8080/api/blog_posts \
+curl http://localhost:9090/api/products
+curl -X POST http://localhost:9090/api/blog_posts \
   -d '{"title":"First Post","body":"Hello from the unikernel!","author":"admin"}'
-curl http://localhost:8080/api/blog_posts
+curl http://localhost:9090/api/blog_posts
 
 # Example Rust endpoints
-curl http://localhost:8080/api/echo
-curl http://localhost:8080/api/greet/World
+curl http://localhost:9090/api/echo
+curl http://localhost:9090/api/greet/World
 ```
 
 ---
@@ -519,10 +519,10 @@ doctl compute droplet create my-appliance \
 ```
  Host                          Guest
  ────────                      ──────
- localhost:8080  ─── fwd ───>  :8080
- (QEMU user-net)
+ localhost:9090  ─── fwd ───>  :8080
+ (QEMU user-net / RTL8139)
 ```
-No root required. Best for development.
+No root required. Best for development. Uses RTL8139 NIC (required for SLIRP).
 
 ### TAP
 
@@ -683,6 +683,17 @@ A unikernel compiles everything into one binary -- there's no runtime code loadi
 - [ ] Config engine: filtering/search query parameters
 - [ ] Config engine: pagination for large collections
 - [ ] Config engine: relationship fields between collections
+
+---
+
+## Quick Reference
+
+| Action | Command |
+|--------|---------|
+| Build | `./scripts/build.sh` |
+| Run | `./scripts/run-qemu.sh` |
+| Test | `curl http://localhost:9090` |
+| Quit QEMU | `Ctrl+A, X` |
 
 ---
 
