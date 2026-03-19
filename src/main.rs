@@ -21,22 +21,23 @@
 use hermit as _;
 
 mod api;
-mod server;
+mod http;
 mod router;
-mod storage;
+mod security;
+mod server;
 mod static_files;
+mod storage;
+mod tls;
 
 fn main() {
     // ── Serial Lifeline ─────────────────────────────────────────────
-    // All println! output goes to COM1 serial. QEMU with `-serial stdio`
-    // will display this in the terminal. If anything panics, the panic
-    // handler also writes here.
     println!("════════════════════════════════════════════════════════");
     println!("  Rust Web Appliance v{}", env!("CARGO_PKG_VERSION"));
     println!("  Build: {} ({})",
         env!("CARGO_PKG_NAME"),
         if cfg!(debug_assertions) { "debug" } else { "release" }
     );
+    println!("  Security: TLS + API key authentication");
     println!("════════════════════════════════════════════════════════");
     println!();
 
@@ -50,9 +51,6 @@ fn main() {
     println!();
 
     // ── Initialize storage layer ────────────────────────────────────
-    // Leaked into 'static so all handler threads can reference it
-    // without Arc overhead. This is intentional — storage lives for
-    // the entire appliance lifetime (i.e., until power off).
     println!("[init] Initializing storage layer...");
     let storage: &'static storage::Storage = match storage::Storage::init() {
         Ok(store) => {
@@ -66,12 +64,31 @@ fn main() {
         }
     };
 
-    // ── Start the web server ────────────────────────────────────────
-    let bind_addr = "0.0.0.0:8080";
-    println!("[init] Starting HTTP server on {}", bind_addr);
+    // ── Initialize security layer ───────────────────────────────────
+    println!("[init] Initializing security...");
+    let security: &'static security::SecurityConfig = Box::leak(Box::new(
+        security::SecurityConfig::load(storage),
+    ));
     println!();
 
-    if let Err(e) = server::run(bind_addr, storage) {
+    // ── Initialize TLS ──────────────────────────────────────────────
+    println!("[init] Initializing TLS...");
+    let tls_config = match tls::init() {
+        Ok(config) => config,
+        Err(e) => {
+            eprintln!("[FATAL] TLS init failed: {}", e);
+            eprintln!("[FATAL] Check cert files at /data/tls/ or embedded certs");
+            return;
+        }
+    };
+    println!();
+
+    // ── Start the HTTPS server ──────────────────────────────────────
+    let bind_addr = "0.0.0.0:8443";
+    println!("[init] Starting HTTPS server on {}", bind_addr);
+    println!();
+
+    if let Err(e) = server::run(bind_addr, tls_config, storage, security) {
         eprintln!("[FATAL] Server error: {}", e);
     }
 

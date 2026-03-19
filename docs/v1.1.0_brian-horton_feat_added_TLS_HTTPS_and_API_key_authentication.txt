@@ -1,0 +1,58 @@
+Version: 1.1.0
+Type: Feature
+Date: 2026-03-19
+
+Issues:
+  1. No authentication — all API endpoints were publicly accessible.
+  2. No TLS/HTTPS — all traffic was transmitted in plain HTTP.
+  3. No API keys — anyone who could reach port 8080 had full CRUD access.
+
+Changes:
+
+  1. TLS/HTTPS (src/tls.rs, src/server.rs)
+     - Replaced tiny_http with custom HTTPS server built on:
+       * std::net::TcpListener for TCP connections
+       * rustls 0.23 for TLS (pure-Rust, no ring/aws-lc-rs default providers)
+       * rustls-rustcrypto for pure-Rust crypto (no C FFI, hermit-compatible)
+       * httparse for HTTP/1.1 request parsing (pure-Rust, zero deps)
+     - Certificate loading from VirtioFS (/data/tls/cert.pem + key.pem)
+     - Embedded self-signed dev certificate as fallback
+     - Server now listens on port 8443 (HTTPS) instead of 8080 (HTTP)
+     - This is the first known TLS implementation on HermitOS.
+
+  2. API Key Authentication (src/security.rs)
+     - All endpoints require API key authentication by default.
+     - Supported auth methods:
+       * X-API-Key header
+       * Authorization: Bearer <key> header
+     - Role-based access control:
+       * "admin" role: full access (GET, POST, PUT, DELETE, PATCH)
+       * "read" role: read-only access (GET only)
+     - Public endpoints exempted from auth: GET /api/health
+     - Security config stored in KV storage (key: security__config)
+     - Default dev key: rwa_dev_default_key_CHANGE_ME (printed to serial)
+
+  3. Custom HTTP Layer (src/http.rs)
+     - Pure-Rust HTTP/1.1 request parser using httparse crate
+     - Custom response writer with proper status codes and headers
+     - Request body size limit: 1MB, header size limit: 8KB
+     - Works with any Read+Write stream (plain TCP or TLS)
+
+  4. Architecture Changes
+     - Removed dependency: tiny_http
+     - Added dependencies: rustls, rustls-pemfile, rustls-rustcrypto, httparse
+     - All new dependencies are pure Rust — no C FFI, no mmap, no async
+     - Context API unchanged — all existing handlers work without modification
+     - Config engine updated to use new HTTP types (same CRUD functionality)
+     - Static file server updated to use new response writer
+
+  5. Supporting Files
+     - New: src/http.rs (HTTP request/response types)
+     - New: src/tls.rs (TLS configuration and cert loading)
+     - New: src/security.rs (API key auth and RBAC)
+     - New: certs/dev-cert.pem, certs/dev-key.pem (embedded dev certificate)
+     - New: scripts/gen-cert.sh (certificate generation helper)
+     - Modified: All existing src/ files updated for new HTTP types
+     - Updated: Default index.html shows HTTPS and auth info
+
+Build Status: PASS — cargo build --target x86_64-unknown-hermit compiles with zero errors.

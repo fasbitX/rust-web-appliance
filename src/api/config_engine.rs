@@ -14,21 +14,20 @@
 //   DELETE /api/{collection}/{id}   → delete
 //
 // Data is stored in the KV layer with namespaced keys:
-//   {collection}:{id}       → the item JSON
-//   {collection}:_index     → JSON array of all IDs
+//   {collection}__{id}       → the item JSON
+//   {collection}__index      → JSON array of all IDs
 //
 // ═══════════════════════════════════════════════════════════════════
 
-#[allow(unused_imports)]
-use std::io::Read;
 use std::collections::HashMap;
 use std::fs;
+use std::io::Write;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::Deserialize;
-use tiny_http::{Request, Response, Header, StatusCode};
 
+use crate::http::{self, HttpRequest};
 use crate::storage::Storage;
 
 // ── Configuration Schema ────────────────────────────────────────────
@@ -75,7 +74,9 @@ impl ConfigEngine {
                     return None;
                 }
                 for (name, col) in &config.collections {
-                    let required: Vec<&String> = col.fields.iter()
+                    let required: Vec<&String> = col
+                        .fields
+                        .iter()
                         .filter(|(_, f)| f.required)
                         .map(|(k, _)| k)
                         .collect();
@@ -86,7 +87,10 @@ impl ConfigEngine {
                         required.len()
                     );
                 }
-                println!("[config-api] {} collections loaded, 5 endpoints each", count);
+                println!(
+                    "[config-api] {} collections loaded, 5 endpoints each",
+                    count
+                );
                 Some(ConfigEngine { config })
             }
             Err(e) => {
@@ -102,15 +106,20 @@ impl ConfigEngine {
         self.config.collections.keys().map(|s| s.as_str()).collect()
     }
 
-    /// Try to handle a request. Returns true if matched, false to pass through.
-    pub fn try_handle(&self, request: Request, storage: &Storage) -> Result<(), Request> {
-        let url = request.url().to_string();
-        let method = request.method().to_string();
+    /// Try to handle a request. Returns true if handled, false to pass through.
+    pub fn try_handle(
+        &self,
+        request: &HttpRequest,
+        writer: &mut dyn Write,
+        storage: &Storage,
+    ) -> bool {
+        let url = &request.url;
+        let method = &request.method;
 
         // Must start with /api/
         let path = match url.strip_prefix("/api/") {
             Some(p) => p.split('?').next().unwrap_or(p),
-            None => return Err(request),
+            None => return false,
         };
 
         // Parse: collection_name / optional_id
@@ -121,26 +130,30 @@ impl ConfigEngine {
         // Look up collection
         let collection = match self.config.collections.get(collection_name) {
             Some(c) => c,
-            None => return Err(request),
+            None => return false,
         };
 
         match (method.as_str(), item_id) {
-            ("GET", "")    => self.handle_list(request, storage, collection_name),
-            ("GET", id)    => self.handle_get(request, storage, collection_name, id),
-            ("POST", "")   => self.handle_create(request, storage, collection_name, collection),
-            ("PUT", id)    => self.handle_update(request, storage, collection_name, collection, id),
-            ("DELETE", id) => self.handle_delete(request, storage, collection_name, id),
+            ("GET", "") => self.handle_list(writer, storage, collection_name),
+            ("GET", id) => self.handle_get(writer, storage, collection_name, id),
+            ("POST", "") => {
+                self.handle_create(request, writer, storage, collection_name, collection)
+            }
+            ("PUT", id) => {
+                self.handle_update(request, writer, storage, collection_name, collection, id)
+            }
+            ("DELETE", id) => self.handle_delete(writer, storage, collection_name, id),
             _ => {
-                respond_json(request, 405, r#"{"error":"method not allowed"}"#);
+                respond_json(writer, 405, r#"{"error":"method not allowed"}"#);
             }
         }
 
-        Ok(())
+        true
     }
 
     // ── CRUD Handlers ───────────────────────────────────────────────
 
-    fn handle_list(&self, request: Request, storage: &Storage, collection: &str) {
+    fn handle_list(&self, writer: &mut dyn Write, storage: &Storage, collection: &str) {
         let index_key = format!("{}__index", collection);
         let ids: Vec<String> = match storage.get(&index_key) {
             Some(raw) => serde_json::from_str(&raw).unwrap_or_default(),
@@ -161,44 +174,44 @@ impl ConfigEngine {
             items.len(),
             items.join(",")
         );
-        respond_json(request, 200, &body);
+        respond_json(writer, 200, &body);
     }
 
-    fn handle_get(&self, request: Request, storage: &Storage, collection: &str, id: &str) {
+    fn handle_get(&self, writer: &mut dyn Write, storage: &Storage, collection: &str, id: &str) {
         let key = format!("{}__{}", collection, id);
         match storage.get(&key) {
-            Some(data) => respond_json(request, 200, &data),
-            None => respond_json(request, 404, r#"{"error":"not found"}"#),
+            Some(data) => respond_json(writer, 200, &data),
+            None => respond_json(writer, 404, r#"{"error":"not found"}"#),
         }
     }
 
     fn handle_create(
         &self,
-        mut request: Request,
+        request: &HttpRequest,
+        writer: &mut dyn Write,
         storage: &Storage,
         collection: &str,
         col_def: &CollectionDef,
     ) {
-        // Read body
-        let mut body = String::new();
-
-        if request.as_reader().read_to_string(&mut body).is_err() || body.is_empty() {
-            respond_json(request, 400, r#"{"error":"request body required"}"#);
+        let body = String::from_utf8_lossy(&request.body).to_string();
+        if body.is_empty() {
+            respond_json(writer, 400, r#"{"error":"request body required"}"#);
             return;
         }
 
         // Parse as JSON object
-        let mut obj: serde_json::Map<String, serde_json::Value> = match serde_json::from_str(&body) {
+        let mut obj: serde_json::Map<String, serde_json::Value> = match serde_json::from_str(&body)
+        {
             Ok(serde_json::Value::Object(m)) => m,
             _ => {
-                respond_json(request, 400, r#"{"error":"body must be a JSON object"}"#);
+                respond_json(writer, 400, r#"{"error":"body must be a JSON object"}"#);
                 return;
             }
         };
 
         // Validate fields
         if let Some(err) = validate_fields(&obj, col_def) {
-            respond_json(request, 400, &format!(r#"{{"error":"{}"}}"#, err));
+            respond_json(writer, 400, &format!(r#"{{"error":"{}"}}"#, err));
             return;
         }
 
@@ -208,28 +221,30 @@ impl ConfigEngine {
 
         // Add timestamp
         if let Ok(ts) = SystemTime::now().duration_since(UNIX_EPOCH) {
-            obj.insert("created_at".to_string(), serde_json::Value::Number(
-                serde_json::Number::from(ts.as_secs())
-            ));
+            obj.insert(
+                "created_at".to_string(),
+                serde_json::Value::Number(serde_json::Number::from(ts.as_secs())),
+            );
         }
 
         // Store item
         let item_json = serde_json::to_string(&obj).unwrap_or_default();
         let key = format!("{}__{}", collection, id);
         if let Err(e) = storage.set(&key, &item_json) {
-            respond_json(request, 500, &format!(r#"{{"error":"{}"}}"#, e));
+            respond_json(writer, 500, &format!(r#"{{"error":"{}"}}"#, e));
             return;
         }
 
         // Update index
         update_index(storage, collection, &id, IndexOp::Add);
 
-        respond_json(request, 201, &item_json);
+        respond_json(writer, 201, &item_json);
     }
 
     fn handle_update(
         &self,
-        mut request: Request,
+        request: &HttpRequest,
+        writer: &mut dyn Write,
         storage: &Storage,
         collection: &str,
         col_def: &CollectionDef,
@@ -241,24 +256,24 @@ impl ConfigEngine {
         let existing = match storage.get(&key) {
             Some(data) => data,
             None => {
-                respond_json(request, 404, r#"{"error":"not found"}"#);
+                respond_json(writer, 404, r#"{"error":"not found"}"#);
                 return;
             }
         };
 
         // Read body
-        let mut body = String::new();
-
-        if request.as_reader().read_to_string(&mut body).is_err() || body.is_empty() {
-            respond_json(request, 400, r#"{"error":"request body required"}"#);
+        let body = String::from_utf8_lossy(&request.body).to_string();
+        if body.is_empty() {
+            respond_json(writer, 400, r#"{"error":"request body required"}"#);
             return;
         }
 
         // Parse update fields
-        let updates: serde_json::Map<String, serde_json::Value> = match serde_json::from_str(&body) {
+        let updates: serde_json::Map<String, serde_json::Value> = match serde_json::from_str(&body)
+        {
             Ok(serde_json::Value::Object(m)) => m,
             _ => {
-                respond_json(request, 400, r#"{"error":"body must be a JSON object"}"#);
+                respond_json(writer, 400, r#"{"error":"body must be a JSON object"}"#);
                 return;
             }
         };
@@ -278,36 +293,43 @@ impl ConfigEngine {
 
         // Validate merged result
         if let Some(err) = validate_fields(&obj, col_def) {
-            respond_json(request, 400, &format!(r#"{{"error":"{}"}}"#, err));
+            respond_json(writer, 400, &format!(r#"{{"error":"{}"}}"#, err));
             return;
         }
 
         // Add updated_at timestamp
         if let Ok(ts) = SystemTime::now().duration_since(UNIX_EPOCH) {
-            obj.insert("updated_at".to_string(), serde_json::Value::Number(
-                serde_json::Number::from(ts.as_secs())
-            ));
+            obj.insert(
+                "updated_at".to_string(),
+                serde_json::Value::Number(serde_json::Number::from(ts.as_secs())),
+            );
         }
 
         // Store
         let item_json = serde_json::to_string(&obj).unwrap_or_default();
         if let Err(e) = storage.set(&key, &item_json) {
-            respond_json(request, 500, &format!(r#"{{"error":"{}"}}"#, e));
+            respond_json(writer, 500, &format!(r#"{{"error":"{}"}}"#, e));
             return;
         }
 
-        respond_json(request, 200, &item_json);
+        respond_json(writer, 200, &item_json);
     }
 
-    fn handle_delete(&self, request: Request, storage: &Storage, collection: &str, id: &str) {
+    fn handle_delete(
+        &self,
+        writer: &mut dyn Write,
+        storage: &Storage,
+        collection: &str,
+        id: &str,
+    ) {
         let key = format!("{}__{}", collection, id);
         match storage.delete(&key) {
             Ok(true) => {
                 update_index(storage, collection, id, IndexOp::Remove);
-                respond_json(request, 200, r#"{"status":"deleted"}"#);
+                respond_json(writer, 200, r#"{"status":"deleted"}"#);
             }
-            Ok(false) => respond_json(request, 404, r#"{"error":"not found"}"#),
-            Err(e) => respond_json(request, 500, &format!(r#"{{"error":"{}"}}"#, e)),
+            Ok(false) => respond_json(writer, 404, r#"{"error":"not found"}"#),
+            Err(e) => respond_json(writer, 500, &format!(r#"{{"error":"{}"}}"#, e)),
         }
     }
 }
@@ -328,8 +350,8 @@ fn validate_fields(
                 let type_ok = match field_def.field_type.as_str() {
                     "string" => value.is_string(),
                     "number" => value.is_number(),
-                    "bool"   => value.is_boolean(),
-                    _        => true,
+                    "bool" => value.is_boolean(),
+                    _ => true,
                 };
                 if !type_ok {
                     return Some(format!(
@@ -345,7 +367,10 @@ fn validate_fields(
 
 // ── Index Management ────────────────────────────────────────────────
 
-enum IndexOp { Add, Remove }
+enum IndexOp {
+    Add,
+    Remove,
+}
 
 fn update_index(storage: &Storage, collection: &str, id: &str, op: IndexOp) {
     let index_key = format!("{}__index", collection);
@@ -382,12 +407,8 @@ fn generate_id() -> String {
 
 // ── Response Helper ─────────────────────────────────────────────────
 
-fn respond_json(request: Request, status: u16, body: &str) {
-    let header = Header::from_bytes("Content-Type", "application/json").unwrap();
-    let response = Response::from_string(body)
-        .with_status_code(StatusCode(status))
-        .with_header(header);
-    if let Err(e) = request.respond(response) {
+fn respond_json(writer: &mut dyn Write, status: u16, body: &str) {
+    if let Err(e) = http::write_response(writer, status, "application/json", body.as_bytes()) {
         eprintln!("[config-api] Response error: {}", e);
     }
 }

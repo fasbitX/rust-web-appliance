@@ -1,6 +1,6 @@
 [package]
 name = "rust-web-appliance"
-version = "1.0.1"
+version = "1.1.0"
 edition = "2024"
 description = "All-Rust unikernel web server appliance on HermitOS"
 
@@ -25,8 +25,12 @@ hermit = { git = "https://github.com/hermit-os/hermit-rs.git", tag = "hermit-0.1
 ] }
 
 # ── Application dependencies ────────────────────────────────────────
+# All crates must be pure Rust — no C FFI, no mmap, no async runtimes.
 [dependencies]
-tiny_http = "0.12"          # Synchronous HTTP server (proven on HermitOS)
 serde = { version = "1", features = ["derive"] }
-serde_json = "1"            # JSON serialization for flat-file storage
+serde_json = "1"
 log = "0.4"
+httparse = "1"                      # Pure-Rust HTTP/1.1 parser (replaces tiny_http)
+rustls = { version = "0.23", default-features = false, features = ["std", "tls12", "logging"] }
+rustls-pemfile = "2"                # Pure-Rust PEM certificate loader
+rustls-rustcrypto = "0.0.2-alpha"   # Pure-Rust crypto provider (no ring, no C)

@@ -2,29 +2,33 @@
 // RequestContext — the single object every handler receives
 // ═══════════════════════════════════════════════════════════════════
 //
-// Wraps the raw tiny_http Request and provides ergonomic helpers
-// so handler authors never need to import tiny_http directly.
+// Wraps the parsed HttpRequest and a writable stream so handler
+// authors never need to deal with raw I/O.
 //
 // Usage in a handler:
 //
 //   pub fn my_handler(ctx: Context) {
 //       let name = ctx.param();                     // URL segment after prefix
-//       let body = ctx.body_string();               // read request body
 //       ctx.json(200, r#"{"ok": true}"#);           // send JSON response
+//   }
+//
+//   pub fn my_post_handler(mut ctx: Context) {
+//       let body = ctx.body_string();               // read request body
+//       ctx.json(200, &format!(r#"{{"got":"{}"}}"#, body));
 //   }
 //
 // ═══════════════════════════════════════════════════════════════════
 
-#[allow(unused_imports)]
-use std::io::Read;
-use tiny_http::{Request, Response, Header, StatusCode};
+use std::io::Write;
 
+use crate::http::{self, HttpRequest};
 use crate::storage::Storage;
 
 /// Everything a handler needs to process a request and send a response.
 #[allow(dead_code)]
 pub struct Context {
-    request: Option<Request>,
+    request: HttpRequest,
+    writer: Option<Box<dyn Write + Send>>,
     url: String,
     method: String,
     prefix_len: usize,
@@ -33,11 +37,17 @@ pub struct Context {
 
 #[allow(dead_code)]
 impl Context {
-    pub(crate) fn new(request: Request, storage: &'static Storage, prefix_len: usize) -> Self {
-        let url = request.url().to_string();
-        let method = request.method().to_string();
+    pub(crate) fn new(
+        request: HttpRequest,
+        writer: Box<dyn Write + Send>,
+        storage: &'static Storage,
+        prefix_len: usize,
+    ) -> Self {
+        let url = request.url.clone();
+        let method = request.method.clone();
         Context {
-            request: Some(request),
+            request,
+            writer: Some(writer),
             url,
             method,
             prefix_len,
@@ -65,6 +75,7 @@ impl Context {
     /// Returns empty string if there's nothing after the prefix.
     pub fn param(&self) -> &str {
         let rest = &self.url[self.prefix_len..];
+        let rest = rest.split('?').next().unwrap_or(rest);
         rest.strip_prefix('/').unwrap_or(rest)
     }
 
@@ -83,19 +94,20 @@ impl Context {
         self.url.split_once('?').map(|(_, q)| q).unwrap_or("")
     }
 
-    /// Read the request body as a String. Returns empty string on error.
+    /// Read the request body as a String. Returns empty string if body is empty.
     pub fn body_string(&mut self) -> String {
-        let mut buf = String::new();
-        if let Some(req) = self.request.as_mut() {
-            let _ = req.as_reader().read_to_string(&mut buf);
-        }
-        buf
+        String::from_utf8_lossy(&self.request.body).to_string()
     }
 
     /// Read the request body and parse it as JSON.
     pub fn body_json<T: serde::de::DeserializeOwned>(&mut self) -> Result<T, String> {
         let raw = self.body_string();
         serde_json::from_str(&raw).map_err(|e| format!("JSON parse error: {}", e))
+    }
+
+    /// Get a request header by name (case-insensitive).
+    pub fn header(&self, name: &str) -> Option<&str> {
+        self.request.header(name)
     }
 
     // ── Response helpers ────────────────────────────────────────────
@@ -129,14 +141,10 @@ impl Context {
         self.json(status, &body);
     }
 
-    /// Internal: consume the request and send a response.
-    fn respond_with(self, status: u16, content_type: &str, data: &[u8]) {
-        if let Some(request) = self.request {
-            let header = Header::from_bytes("Content-Type", content_type).unwrap();
-            let response = Response::from_data(data.to_vec())
-                .with_status_code(StatusCode(status))
-                .with_header(header);
-            if let Err(e) = request.respond(response) {
+    /// Internal: consume the context and send a response.
+    fn respond_with(mut self, status: u16, content_type: &str, data: &[u8]) {
+        if let Some(mut writer) = self.writer.take() {
+            if let Err(e) = http::write_response(&mut writer, status, content_type, data) {
                 eprintln!("[api] Response error: {}", e);
             }
         }
