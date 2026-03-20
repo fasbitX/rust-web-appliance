@@ -57,7 +57,7 @@ pub fn handle_put(request: HttpRequest, mut writer: Box<dyn Write + Send>) {
                 &mut writer,
                 200,
                 "application/json",
-                br#"{"status":"saved","note":"reboot required to apply changes"}"#,
+                br#"{"status":"saved","note":"restart required to apply changes"}"#,
             );
         }
         Err(e) => {

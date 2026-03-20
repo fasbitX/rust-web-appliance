@@ -1,0 +1,24 @@
+Version: 1.3.2
+Type: fix
+Author: brian-horton
+Date: 2026-03-19
+
+Issues:
+  - Admin panel said "reboot" which is misleading for a unikernel
+  - Users had no indication how to actually restart the appliance
+
+Changes:
+  - Replaced "reboot" with "restart" across admin UI and Rust handlers
+  - Admin panel banners now say: "Changes require restart to take effect
+    (Ctrl+A, X to quit QEMU, then re-run)."
+  - Updated status messages in ports_manager.rs and endpoints.rs
+
+Files Changed:
+  - admin_ui/admin.html
+  - src/admin/ports_manager.rs
+  - src/admin/endpoints.rs
+  - src/ports.rs (comment)
+  - version.json (1.3.1 -> 1.3.2)
+  - Cargo.toml (1.3.1 -> 1.3.2)
+
+Build Status: PASS — compiles for x86_64-unknown-hermit with zero errors

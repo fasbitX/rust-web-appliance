@@ -612,7 +612,7 @@ label.form-label {
 
         <!-- ── VHost ─────────────────────────────────────────── -->
         <div class="tab-panel" id="panel-vhost">
-            <div class="alert alert-warning">Changes require reboot to take effect.</div>
+            <div class="alert alert-warning">Changes require restart to take effect (Ctrl+A, X to quit QEMU, then re-run).</div>
 
             <div class="card">
                 <h3>Virtual Host</h3>
@@ -751,7 +751,7 @@ label.form-label {
 
         <!-- ── Endpoints ─────────────────────────────────────── -->
         <div class="tab-panel" id="panel-endpoints">
-            <div class="alert alert-warning">Changes require reboot to take effect.</div>
+            <div class="alert alert-warning">Changes require restart to take effect (Ctrl+A, X to quit QEMU, then re-run).</div>
             <div class="card">
                 <h3>endpoints.json</h3>
                 <textarea id="endpoints-editor" class="mono" rows="24" placeholder="Loading..."></textarea>
@@ -1341,7 +1341,7 @@ async function saveEndpoints() {
     if (!resp) return;
     var data = await resp.json().catch(function() { return {}; });
     if (resp.ok) {
-        setStatus('endpoints-msg', data.status || 'Saved. Reboot required for changes to take effect.', 'success');
+        setStatus('endpoints-msg', data.status || 'Saved. Restart required (Ctrl+A, X to quit QEMU, then re-run).', 'success');
     } else {
         setStatus('endpoints-msg', data.error || 'Save failed.', 'error');
     }
@@ -1494,7 +1494,7 @@ async function savePortConfig() {
     if (!resp) return;
     var data = await resp.json().catch(function() { return {}; });
     if (resp.ok) {
-        setStatus('vhost-msg', data.status || 'Saved. Reboot required for changes to take effect.', 'success');
+        setStatus('vhost-msg', data.status || 'Saved. Restart required (Ctrl+A, X to quit QEMU, then re-run).', 'success');
     } else {
         setStatus('vhost-msg', data.error || 'Save failed.', 'error');
     }

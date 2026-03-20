@@ -9,7 +9,7 @@
 //
 // Configuration stored in /data/ports.json (VirtioFS).
 // Falls back to defaults when file is absent.
-// Changes require reboot to take effect.
+// Changes require restart to take effect.
 // ═══════════════════════════════════════════════════════════════════
 
 use serde::{Deserialize, Serialize};
