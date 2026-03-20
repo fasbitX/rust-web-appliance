@@ -1,6 +1,12 @@
 ═══════════════════════════════════════════════════════════════════
-  TLS Certificate Directory — Rust Web Appliance
+  data/tls/ — Production Certificates (Runtime)
 ═══════════════════════════════════════════════════════════════════
+
+  This is where PRODUCTION certificates go. The unikernel reads
+  these at boot from /data/tls/ via VirtioFS — no rebuild needed.
+
+  Not to be confused with certs/ which holds the embedded dev
+  fallback certificate compiled into the binary. See certs/README.
 
   Place your TLS certificate and private key here:
 

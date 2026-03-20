@@ -1,0 +1,18 @@
+Version: 1.1.4
+Type: Docs
+Date: 2026-03-19
+
+Issues:
+  1. Two TLS-related directories (certs/ and data/tls/) with no explanation
+     of which is which — confusing for anyone deploying the appliance.
+
+Changes:
+  1. Added certs/README explaining that certs/ holds the embedded dev
+     fallback certificate, compiled into the binary at build time via
+     include_str!() in src/tls.rs. Not for production use.
+
+  2. Updated data/tls/README header to clarify that data/tls/ is for
+     production certificates loaded at runtime via VirtioFS. Added
+     cross-reference to certs/README.
+
+Build Status: PASS — cargo build --target x86_64-unknown-hermit compiles with zero errors.

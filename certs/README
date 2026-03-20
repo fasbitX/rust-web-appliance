@@ -1,0 +1,20 @@
+═══════════════════════════════════════════════════════════════════
+  certs/ — Embedded Dev Certificate (Compile-Time)
+═══════════════════════════════════════════════════════════════════
+
+  This directory holds the DEVELOPMENT fallback certificate that
+  gets compiled directly into the unikernel binary.
+
+  Files:
+    dev-cert.pem   ← Self-signed EC P-256 cert (10-year validity)
+    dev-key.pem    ← Corresponding private key
+
+  How it works:
+    src/tls.rs uses include_str!("../certs/dev-cert.pem") to bake
+    these into the binary at compile time. If no production certs
+    are found at /data/tls/ on boot, this fallback is used.
+
+  This is NOT where production certificates go.
+  For production certs → see data/tls/README
+
+═══════════════════════════════════════════════════════════════════
