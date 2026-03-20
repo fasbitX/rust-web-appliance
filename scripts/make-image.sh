@@ -128,6 +128,23 @@ if [ -d "backend" ] && [ -f "backend/endpoints.json" ]; then
     cp backend/endpoints.json /tmp/appliance_mnt/backend/
 fi
 
+# Copy TLS certificates into the image at /data/tls
+# The unikernel reads these at boot from /data/tls/cert.pem + key.pem
+# If no certs are found, it falls back to the embedded dev certificate.
+# To use Cloudflare Origin Certificates, place them in data/tls/ before
+# building the image. See data/tls/README for instructions.
+if [ -f "data/tls/cert.pem" ] && [ -f "data/tls/key.pem" ]; then
+    echo "      Copying data/tls/ → /data/tls/ (production TLS certs)..."
+    mkdir -p /tmp/appliance_mnt/data/tls
+    cp data/tls/cert.pem /tmp/appliance_mnt/data/tls/cert.pem
+    cp data/tls/key.pem  /tmp/appliance_mnt/data/tls/key.pem
+    chmod 600 /tmp/appliance_mnt/data/tls/key.pem
+else
+    echo "      No TLS certs in data/tls/ — will use embedded dev certificate"
+    echo "      (See data/tls/README for Cloudflare setup)"
+    mkdir -p /tmp/appliance_mnt/data/tls
+fi
+
 sync
 echo "      GRUB + loader + appliance installed"
 
@@ -144,8 +161,10 @@ echo "  Test locally:"
 echo "    qemu-system-x86_64 -enable-kvm -m 256M \\"
 echo "      -serial stdio -display none \\"
 echo "      -hda ${IMAGE_NAME} \\"
-echo "      -netdev user,id=u1,hostfwd=tcp::8080-:8080 \\"
-echo "      -device virtio-net-pci,netdev=u1"
+echo "      -netdev user,id=u1,hostfwd=tcp::9443-:8443 \\"
+echo "      -device rtl8139,netdev=u1"
+echo ""
+echo "    curl -vk https://localhost:9443/api/health"
 echo ""
 echo "  Upload to DigitalOcean:"
 echo "    doctl compute image create rust-web-appliance \\"

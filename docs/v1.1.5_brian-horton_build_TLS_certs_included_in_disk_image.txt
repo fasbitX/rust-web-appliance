@@ -1,0 +1,25 @@
+Version: 1.1.5
+Type: Build
+Date: 2026-03-19
+
+Issues:
+  1. make-image.sh did not copy TLS certificates into the .img file.
+     Deploying to DigitalOcean would boot with only the embedded dev
+     certificate — no way to use Cloudflare Origin Certificates.
+  2. Test command in make-image.sh footer still referenced port 8080
+     (HTTP) instead of 8443 (HTTPS) from the v1.1.0 TLS migration.
+
+Changes:
+  1. Updated scripts/make-image.sh to copy data/tls/cert.pem and
+     data/tls/key.pem into /data/tls/ on the disk image:
+     - If certs are present, copies them with chmod 600 on the key
+     - If no certs found, prints a notice and creates the empty
+       /data/tls/ directory for later manual placement
+     - Comments explain the Cloudflare workflow
+
+  2. Fixed test command in make-image.sh footer:
+     - Port forwarding: 9443→8443 (was 8080→8080)
+     - NIC: rtl8139 (required for SLIRP networking)
+     - Added curl example for quick smoke test
+
+Build Status: PASS — cargo build --target x86_64-unknown-hermit compiles with zero errors.
