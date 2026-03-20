@@ -1,0 +1,36 @@
+Version: 1.5.0
+Type: Feature
+Date: 2026-03-20
+
+Issues:
+  - No email sending capability existed in the appliance
+  - Users needed a way to configure SMTP and send emails from the unikernel
+
+Changes:
+  1. Created src/smtp.rs — Pure Rust synchronous SMTP client
+     - Supports plain, STARTTLS (port 587), and direct TLS (port 465)
+     - AUTH PLAIN authentication
+     - Uses rustls (already in tree) for TLS with rustcrypto provider
+     - Byte-by-byte line reading to avoid buffering issues during STARTTLS upgrade
+     - Built-in base64 encoder (no new dependencies)
+     - Email address validation to prevent SMTP injection
+     - RFC 5321 compliant dot-stuffing in message bodies
+
+  2. Created src/admin/smtp_manager.rs — Admin API handlers
+     - GET  /admin/api/smtp      — Returns SMTP config (password masked)
+     - PUT  /admin/api/smtp      — Saves SMTP config to persistent storage
+     - POST /admin/api/smtp/test — Sends a test email to verify config
+
+  3. Updated admin_ui/admin.html — Added SMTP tab to admin console
+     - Configuration form: host, port, encryption, username, password, from name, from address
+     - Encryption selector: STARTTLS, Direct TLS, None
+     - Test email section with recipient field and send button
+     - Password field masks existing values, allows re-entry
+
+  4. Updated src/admin/mod.rs — Registered SMTP module and routes
+  5. Updated src/main.rs — Added smtp module declaration (pub for API access)
+  6. Updated version.json and Cargo.toml — Bumped to 1.5.0
+
+  No new dependencies added — reuses existing rustls + rustls-rustcrypto.
+
+Build Status: Compiles successfully for x86_64-unknown-hermit (zero errors)

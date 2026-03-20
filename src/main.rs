@@ -27,6 +27,7 @@ mod ports;
 mod router;
 mod security;
 mod server;
+pub mod smtp;
 mod static_files;
 mod storage;
 mod tls;

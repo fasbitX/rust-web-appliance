@@ -26,6 +26,9 @@
 //   PUT  /admin/api/security        → update API key config
 //   GET  /admin/api/ports           → port configuration
 //   PUT  /admin/api/ports           → update port config
+//   GET  /admin/api/smtp            → SMTP configuration
+//   PUT  /admin/api/smtp            → update SMTP config
+//   POST /admin/api/smtp/test       → send test email
 //   GET  /admin/*                   → serve embedded admin UI
 // ═══════════════════════════════════════════════════════════════════
 
@@ -37,6 +40,7 @@ pub mod logs;
 pub mod ports_manager;
 pub mod security_manager;
 pub mod session;
+pub mod smtp_manager;
 pub mod tls_manager;
 pub mod ui;
 
@@ -181,6 +185,16 @@ pub fn handle(
             }
             ("PUT", "/admin/api/ports") => {
                 ports_manager::handle_put(request, writer, storage);
+            }
+
+            ("GET", "/admin/api/smtp") => {
+                smtp_manager::handle_get(writer, storage);
+            }
+            ("PUT", "/admin/api/smtp") => {
+                smtp_manager::handle_put(request, writer, storage);
+            }
+            ("POST", "/admin/api/smtp/test") => {
+                smtp_manager::handle_test(request, writer, storage);
             }
 
             // KV browser — prefix match for /admin/api/kv/*

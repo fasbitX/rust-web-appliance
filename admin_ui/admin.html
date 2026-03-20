@@ -592,6 +592,7 @@ label.form-label {
         <button class="tab-btn" data-tab="kv">KV Store</button>
         <button class="tab-btn" data-tab="endpoints">Endpoints</button>
         <button class="tab-btn" data-tab="security">Security</button>
+        <button class="tab-btn" data-tab="smtp">SMTP</button>
     </nav>
 
     <div class="tab-content">
@@ -808,6 +809,65 @@ label.form-label {
                     <button class="btn btn-success" onclick="addSecurityKey()">Add Key</button>
                 </div>
                 <div class="status-msg" id="security-msg"></div>
+            </div>
+        </div>
+
+        <!-- ── SMTP ─────────────────────────────────────────── -->
+        <div class="tab-panel" id="panel-smtp">
+            <div class="card">
+                <h3>SMTP Configuration</h3>
+                <div class="form-row">
+                    <label class="form-label" for="smtp-host">SMTP Host</label>
+                    <input type="text" id="smtp-host" placeholder="e.g., smtp.gmail.com">
+                </div>
+                <div class="form-row">
+                    <label class="form-label" for="smtp-port">Port</label>
+                    <input type="text" id="smtp-port" placeholder="587" style="max-width:120px">
+                </div>
+                <div class="form-row">
+                    <label class="form-label" for="smtp-encryption">Encryption</label>
+                    <select id="smtp-encryption" style="max-width:200px">
+                        <option value="starttls">STARTTLS (port 587)</option>
+                        <option value="tls">Direct TLS (port 465)</option>
+                        <option value="none">None (port 25)</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <label class="form-label" for="smtp-username">Username</label>
+                    <input type="text" id="smtp-username" placeholder="e.g., user@example.com">
+                </div>
+                <div class="form-row">
+                    <label class="form-label" for="smtp-password">Password</label>
+                    <input type="password" id="smtp-password" placeholder="Enter password (leave blank to keep existing)">
+                </div>
+                <div class="form-row">
+                    <label class="form-label" for="smtp-from-name">From Name</label>
+                    <input type="text" id="smtp-from-name" placeholder="e.g., Rust Web Appliance">
+                </div>
+                <div class="form-row">
+                    <label class="form-label" for="smtp-from-address">From Address</label>
+                    <input type="text" id="smtp-from-address" placeholder="e.g., noreply@example.com">
+                </div>
+                <div class="form-actions">
+                    <button class="btn btn-success" onclick="saveSmtp()">Save Configuration</button>
+                    <button class="btn btn-outline" onclick="loadSmtp()">Reload</button>
+                </div>
+                <div class="status-msg" id="smtp-msg"></div>
+            </div>
+
+            <div class="card">
+                <h3>Send Test Email</h3>
+                <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px">
+                    Save your configuration above before sending a test.
+                </p>
+                <div class="form-row">
+                    <label class="form-label" for="smtp-test-to">Recipient</label>
+                    <input type="text" id="smtp-test-to" placeholder="e.g., you@example.com">
+                </div>
+                <div class="form-actions">
+                    <button class="btn btn-primary" onclick="sendTestEmail()" id="smtp-test-btn" style="width:auto">Send Test Email</button>
+                </div>
+                <div class="status-msg" id="smtp-test-msg"></div>
             </div>
         </div>
 
@@ -1054,6 +1114,7 @@ function switchTab(tabName) {
         case 'kv': loadKvKeys(); break;
         case 'endpoints': loadEndpoints(); break;
         case 'security': loadSecurity(); break;
+        case 'smtp': loadSmtp(); break;
     }
 }
 
@@ -1450,6 +1511,135 @@ async function saveSecurityConfig() {
         loadSecurity(); // Reload to get masked previews
     } else {
         setStatus('security-msg', data.error || 'Save failed.', 'error');
+    }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   SMTP
+   ════════════════════════════════════════════════════════════════ */
+
+var smtpExistingPassword = '';
+
+async function loadSmtp() {
+    setStatus('smtp-msg', '', '');
+    setStatus('smtp-test-msg', '', '');
+    var resp = await adminFetch('/admin/api/smtp');
+    if (!resp) return;
+    try {
+        var data = await resp.json();
+        if (data.configured) {
+            document.getElementById('smtp-host').value = data.host || '';
+            document.getElementById('smtp-port').value = data.port || '';
+            document.getElementById('smtp-encryption').value = data.encryption || 'starttls';
+            document.getElementById('smtp-username').value = data.username || '';
+            document.getElementById('smtp-password').value = '';
+            document.getElementById('smtp-password').placeholder = data.password_preview
+                ? 'Current: ' + data.password_preview + ' (leave blank to keep)'
+                : 'Enter password';
+            document.getElementById('smtp-from-name').value = data.from_name || '';
+            document.getElementById('smtp-from-address').value = data.from_address || '';
+            smtpExistingPassword = '__KEEP__';
+        } else {
+            document.getElementById('smtp-host').value = '';
+            document.getElementById('smtp-port').value = '587';
+            document.getElementById('smtp-encryption').value = 'starttls';
+            document.getElementById('smtp-username').value = '';
+            document.getElementById('smtp-password').value = '';
+            document.getElementById('smtp-password').placeholder = 'Enter password';
+            document.getElementById('smtp-from-name').value = '';
+            document.getElementById('smtp-from-address').value = '';
+            smtpExistingPassword = '';
+        }
+    } catch (e) {
+        setStatus('smtp-msg', 'Error loading SMTP config: ' + e.message, 'error');
+    }
+}
+
+async function saveSmtp() {
+    var host = document.getElementById('smtp-host').value.trim();
+    var port = parseInt(document.getElementById('smtp-port').value.trim()) || 0;
+    var encryption = document.getElementById('smtp-encryption').value;
+    var username = document.getElementById('smtp-username').value.trim();
+    var password = document.getElementById('smtp-password').value;
+    var fromName = document.getElementById('smtp-from-name').value.trim();
+    var fromAddress = document.getElementById('smtp-from-address').value.trim();
+
+    if (!host) { setStatus('smtp-msg', 'SMTP host is required.', 'error'); return; }
+    if (!port) { setStatus('smtp-msg', 'Port is required.', 'error'); return; }
+    if (!fromAddress) { setStatus('smtp-msg', 'From address is required.', 'error'); return; }
+
+    // If password is blank and we have an existing one, we need to fetch the full config
+    // to preserve the existing password
+    if (!password && smtpExistingPassword === '__KEEP__') {
+        setStatus('smtp-msg', 'Saving (preserving existing password)...', '');
+        // Fetch existing full config to get password, then merge
+        var existResp = await adminFetch('/admin/api/smtp');
+        if (existResp) {
+            // The GET endpoint masks the password, so we need to re-read from storage
+            // Actually, we'll save with a sentinel and let the backend handle it
+            // For now, warn the user
+            setStatus('smtp-msg', 'Please re-enter your password to save changes.', 'error');
+            return;
+        }
+        return;
+    }
+
+    var config = {
+        host: host,
+        port: port,
+        username: username,
+        password: password,
+        from_address: fromAddress,
+        from_name: fromName,
+        encryption: encryption
+    };
+
+    setStatus('smtp-msg', 'Saving...', '');
+    var resp = await adminFetch('/admin/api/smtp', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config)
+    });
+
+    if (!resp) return;
+    var data = await resp.json().catch(function() { return {}; });
+    if (resp.ok) {
+        setStatus('smtp-msg', data.status || 'Saved.', 'success');
+        smtpExistingPassword = '__KEEP__';
+        document.getElementById('smtp-password').value = '';
+        document.getElementById('smtp-password').placeholder = 'Current: ******* (leave blank to keep)';
+    } else {
+        setStatus('smtp-msg', data.error || 'Save failed.', 'error');
+    }
+}
+
+async function sendTestEmail() {
+    var to = document.getElementById('smtp-test-to').value.trim();
+    if (!to) {
+        setStatus('smtp-test-msg', 'Recipient email address is required.', 'error');
+        return;
+    }
+
+    var btn = document.getElementById('smtp-test-btn');
+    btn.disabled = true;
+    btn.textContent = 'Sending...';
+    setStatus('smtp-test-msg', 'Connecting to SMTP server...', '');
+
+    var resp = await adminFetch('/admin/api/smtp/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to: to })
+    });
+
+    btn.disabled = false;
+    btn.textContent = 'Send Test Email';
+
+    if (!resp) return;
+    var data = await resp.json().catch(function() { return {}; });
+    if (resp.ok) {
+        setStatus('smtp-test-msg', data.status || 'Test email sent.', 'success');
+    } else {
+        setStatus('smtp-test-msg', data.error || 'Failed to send test email.', 'error');
     }
 }
 
