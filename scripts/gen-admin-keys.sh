@@ -6,13 +6,16 @@
 # Usage:
 #   ./scripts/gen-admin-keys.sh
 #
-# Output:
-#   admin_keys/admin_pub.pem  ← Public key (committed, embedded in binary)
-#   admin_priv.pem            ← Private key (KEEP SECRET, never commit)
+# Output (both in admin_keys/):
+#   admin_keys/admin_pub.pem   ← Public key (embedded in binary)
+#   admin_keys/admin_priv.pem  ← Private key (embedded in binary)
 #
-# The public key is compiled into the unikernel at build time.
-# The private key stays on your workstation — you select it in the
-# browser to authenticate to the admin console.
+# Both keys are compiled into the unikernel at build time.
+# The private key is served to the browser so the admin console
+# can auto-sign login challenges — no file picker needed.
+#
+# Security model: whoever builds the binary controls the keypair.
+# Network access to /admin/ is the security boundary.
 # ═══════════════════════════════════════════════════════════════════
 set -euo pipefail
 
@@ -20,7 +23,7 @@ PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$PROJECT_ROOT"
 
 PUB_KEY="admin_keys/admin_pub.pem"
-PRIV_KEY="admin_priv.pem"
+PRIV_KEY="admin_keys/admin_priv.pem"
 
 echo "Generating Ed25519 keypair for admin console..."
 echo ""
@@ -33,12 +36,13 @@ openssl pkey -in "$PRIV_KEY" -pubout -out "$PUB_KEY"
 
 echo "Done!"
 echo ""
-echo "  Public key:  $PUB_KEY  (committed to repo, embedded in binary)"
-echo "  Private key: $PRIV_KEY (KEEP SECRET — never commit this!)"
+echo "  Public key:  $PUB_KEY"
+echo "  Private key: $PRIV_KEY"
+echo ""
+echo "Both keys will be embedded in the binary at build time."
 echo ""
 echo "Next steps:"
 echo "  1. Rebuild: cargo build --target x86_64-unknown-hermit"
-echo "  2. Open https://<appliance>/admin/ in your browser"
-echo "  3. Select $PRIV_KEY when prompted to sign in"
+echo "  2. Open https://<appliance>/admin/ and click Sign In"
 echo ""
 echo "To replace keys: re-run this script and rebuild."

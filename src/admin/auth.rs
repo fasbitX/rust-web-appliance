@@ -2,12 +2,18 @@
 // Admin Auth — Ed25519 challenge-response authentication
 // ═══════════════════════════════════════════════════════════════════
 //
-// The admin public key is embedded at build time from admin_keys/admin_pub.pem.
+// Both the admin public key and private key are embedded at build time
+// from admin_keys/admin_pub.pem and admin_keys/admin_priv.pem.
+//
 // Login flow:
-//   1. POST /admin/api/auth/challenge → server returns random hex nonce
-//   2. Browser signs nonce with private key (Web Crypto API Ed25519)
-//   3. POST /admin/api/auth/verify → server verifies signature
-//   4. Server returns session token on success
+//   1. Browser fetches embedded private key via GET /admin/api/auth/key
+//   2. POST /admin/api/auth/challenge → server returns random hex nonce
+//   3. Browser signs nonce with private key (Web Crypto API Ed25519)
+//   4. POST /admin/api/auth/verify → server verifies signature
+//   5. Server returns session token on success
+//
+// Security model: whoever builds the binary controls the keypair.
+// Network access to /admin/ is the security boundary.
 //
 // ═══════════════════════════════════════════════════════════════════
 
@@ -21,6 +27,7 @@ use rand::Rng;
 use super::session::hex_encode;
 
 const ADMIN_PUB_PEM: &str = include_str!("../../admin_keys/admin_pub.pem");
+const ADMIN_PRIV_PEM: &str = include_str!("../../admin_keys/admin_priv.pem");
 const CHALLENGE_TTL_SECS: u64 = 60;
 const MAX_PENDING_CHALLENGES: usize = 32;
 
@@ -37,12 +44,17 @@ impl AdminAuth {
         let verifying_key = VerifyingKey::from_bytes(&key_bytes)
             .expect("Invalid Ed25519 public key in admin_keys/admin_pub.pem");
 
-        println!("[admin] Ed25519 public key loaded from admin_keys/admin_pub.pem");
+        println!("[admin] Ed25519 keypair loaded from admin_keys/");
 
         AdminAuth {
             verifying_key,
             pending: Mutex::new(HashMap::new()),
         }
+    }
+
+    /// Return the embedded private key PEM (served to the browser for signing).
+    pub fn private_key_pem(&self) -> &'static str {
+        ADMIN_PRIV_PEM
     }
 
     /// Generate a new challenge nonce. Returns the hex-encoded nonce.

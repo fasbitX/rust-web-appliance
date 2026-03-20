@@ -26,8 +26,9 @@ Thumbs.db
 .claude/projects/
 .claude/memory/
 
-# Admin private key — NEVER commit this
+# Admin private key — embedded at build time, unique per deployment
 admin_priv.pem
+admin_keys/admin_priv.pem
 
 # TLS certificates — never commit real certs/keys
 data/tls/*.pem

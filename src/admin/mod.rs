@@ -7,6 +7,7 @@
 // authentication instead.
 //
 // Route table:
+//   GET  /admin/api/auth/key        → serve embedded private key (public)
 //   POST /admin/api/auth/challenge  → generate nonce (public)
 //   POST /admin/api/auth/verify     → verify signature (public)
 //   POST /admin/api/auth/logout     → revoke session
@@ -93,6 +94,9 @@ pub fn handle(
 
     // ── Public auth endpoints (no session required) ──────────────
     match (method.as_str(), path) {
+        ("GET", "/admin/api/auth/key") => {
+            return auth_key(writer, admin_state);
+        }
         ("POST", "/admin/api/auth/challenge") => {
             return auth_challenge(request, writer, admin_state);
         }
@@ -212,6 +216,15 @@ pub fn handle(
 }
 
 // ── Auth handlers ────────────────────────────────────────────────
+
+fn auth_key(
+    mut writer: Box<dyn Write + Send>,
+    admin_state: &'static AdminState,
+) {
+    let pem = admin_state.auth.private_key_pem();
+    let body = format!(r#"{{"key":"{}"}}"#, pem.replace('\n', "\\n"));
+    let _ = http::write_response(&mut writer, 200, "application/json", body.as_bytes());
+}
 
 fn auth_challenge(
     _request: HttpRequest,

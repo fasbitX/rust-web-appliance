@@ -1,29 +1,52 @@
 ═══════════════════════════════════════════════════════════════════
-  admin_keys/ — Admin Console Public Key (Compile-Time)
+  admin_keys/ — Admin Console Keypair (Compile-Time)
 ═══════════════════════════════════════════════════════════════════
 
-  This directory holds the Ed25519 PUBLIC key for admin console
-  authentication. It is embedded into the unikernel binary at
-  build time via include_str!() in src/admin/auth.rs.
+  This directory holds the Ed25519 keypair for admin console
+  authentication. BOTH keys are embedded into the unikernel
+  binary at build time via include_str!() in src/admin/auth.rs.
 
   Files:
-    admin_pub.pem   ← Ed25519 public key (safe to commit)
+    admin_pub.pem    ← Ed25519 public key (verifies signatures)
+    admin_priv.pem   ← Ed25519 private key (signs challenges)
 
-  The corresponding PRIVATE key (admin_priv.pem) lives in the
-  project root and is gitignored. Keep it on your workstation.
+  The private key is gitignored. Each deployment should have
+  its own unique keypair.
 
 ─────────────────────────────────────────────────────────────────
-  HOW AUTHENTICATION WORKS
+  DEPLOYMENT WORKFLOW
 ─────────────────────────────────────────────────────────────────
 
-  1. Open https://<appliance>/admin/ in your browser
-  2. Select your admin_priv.pem file when prompted
-  3. The browser signs a server challenge using Web Crypto API
-  4. The server verifies the signature against this public key
-  5. If valid, you get a session token (1-hour expiry)
+  1. Clone/download the project
+  2. Run: ./scripts/gen-admin-keys.sh
+     → Creates both keys in this directory
+  3. Build: cargo build --target x86_64-unknown-hermit
+     → Both keys are embedded in the binary
+  4. Deploy the binary (QEMU, Digital Ocean, etc.)
+  5. Open https://<appliance>/admin/ and click "Sign In"
+     → No file picker. The browser auto-fetches the embedded
+       private key and signs the challenge automatically.
 
-  No passwords. No credentials stored on the server.
-  The private key never leaves your machine.
+  That's it. No hunting for key files.
+
+─────────────────────────────────────────────────────────────────
+  SECURITY MODEL
+─────────────────────────────────────────────────────────────────
+
+  Whoever builds the binary controls the keypair. The private
+  key is baked into the appliance at build time and served to
+  the admin console browser via HTTPS.
+
+  The security boundary is network access to /admin/:
+    - Only people who can reach the admin URL can authenticate
+    - HTTPS protects the key in transit
+    - Each deployment has a unique keypair
+
+  For 1000 deployments, each operator:
+    1. Downloads the project
+    2. Drops their own keys into admin_keys/
+    3. Builds → gets a unique binary with their own keys
+    4. Deploys to their own server
 
 ─────────────────────────────────────────────────────────────────
   GENERATING NEW KEYS
@@ -33,11 +56,7 @@
 
     ./scripts/gen-admin-keys.sh
 
-  This generates:
-    admin_keys/admin_pub.pem  ← Rebuild to embed the new key
-    admin_priv.pem            ← Keep this safe, never commit
-
-  After generating new keys, rebuild the binary to embed the
-  new public key. The old private key will no longer work.
+  This generates both keys in this directory. After generating
+  new keys, rebuild the binary to embed them.
 
 ═══════════════════════════════════════════════════════════════════

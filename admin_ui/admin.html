@@ -66,46 +66,6 @@ body {
     margin-bottom: 28px;
 }
 
-.login-card label {
-    display: block;
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--text);
-    margin-bottom: 6px;
-}
-
-.file-input-wrap {
-    position: relative;
-    margin-bottom: 20px;
-}
-
-.file-input-wrap input[type="file"] {
-    width: 100%;
-    padding: 8px 12px;
-    background: var(--input-bg);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    color: var(--text);
-    font-size: 13px;
-    cursor: pointer;
-}
-
-.file-input-wrap input[type="file"]::file-selector-button {
-    background: var(--border);
-    color: var(--text);
-    border: none;
-    padding: 4px 12px;
-    border-radius: 4px;
-    margin-right: 10px;
-    cursor: pointer;
-    font-size: 12px;
-}
-
-.file-input-wrap input[type="file"]::file-selector-button:hover {
-    background: var(--text-muted);
-    color: var(--bg);
-}
-
 #login-status {
     margin-bottom: 16px;
     padding: 10px 12px;
@@ -608,12 +568,9 @@ label.form-label {
         <h1>Rust Web Appliance</h1>
         <div class="subtitle">Admin Console</div>
         <div id="login-status"></div>
-        <div class="form-row">
-            <label for="key-file">Select your admin private key (admin_priv.pem)</label>
-            <div class="file-input-wrap">
-                <input type="file" id="key-file" accept=".pem">
-            </div>
-        </div>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:20px;text-align:center">
+            Keypair embedded at build time. Click to authenticate.
+        </p>
         <button class="btn btn-primary" id="login-btn" onclick="doLogin()">Sign In</button>
     </div>
 </div>
@@ -861,31 +818,27 @@ function loginStatus(msg, type) {
 }
 
 async function doLogin() {
-    var fileInput = document.getElementById('key-file');
     var loginBtn = document.getElementById('login-btn');
 
-    if (!fileInput.files || fileInput.files.length === 0) {
-        loginStatus('Please select your admin private key file.', 'error');
-        return;
-    }
-
     // Check for Ed25519 support
-    try {
-        // A quick feature-detect: try importing a dummy key
-        // We test by checking if the algorithm name is accepted
-        var testSupport = crypto.subtle && typeof crypto.subtle.importKey === 'function';
-        if (!testSupport) throw new Error('no subtle');
-    } catch (e) {
+    if (!crypto.subtle || typeof crypto.subtle.importKey !== 'function') {
         loginStatus('Your browser does not support Ed25519. Use Chrome 113+, Firefox 130+, or Safari 17+.', 'error');
         return;
     }
 
     loginBtn.disabled = true;
-    loginStatus('Reading private key...', 'info');
+    loginStatus('Fetching embedded key...', 'info');
 
     try {
-        // 1. Read PEM file
-        var pemText = await fileInput.files[0].text();
+        // 1. Fetch embedded private key from server
+        var keyResp = await fetch('/admin/api/auth/key');
+        if (!keyResp.ok) {
+            loginStatus('Failed to fetch embedded key (HTTP ' + keyResp.status + ').', 'error');
+            loginBtn.disabled = false;
+            return;
+        }
+        var keyData = await keyResp.json();
+        var pemText = keyData.key;
 
         // 2. Strip PEM headers, decode base64 to DER
         var b64 = pemText
@@ -909,7 +862,6 @@ async function doLogin() {
                 ['sign']
             );
         } catch (importErr) {
-            // If the error is about the algorithm, it means the browser does not support Ed25519
             if (importErr.name === 'NotSupportedError') {
                 loginStatus('Your browser does not support Ed25519. Use Chrome 113+, Firefox 130+, or Safari 17+.', 'error');
             } else {
@@ -948,7 +900,7 @@ async function doLogin() {
         );
         var signatureHex = bytesToHex(new Uint8Array(signatureBuffer));
 
-        loginStatus('Verifying signature...', 'info');
+        loginStatus('Verifying...', 'info');
 
         // 6. Post signature for verification
         var verifyResp = await fetch('/admin/api/auth/verify', {

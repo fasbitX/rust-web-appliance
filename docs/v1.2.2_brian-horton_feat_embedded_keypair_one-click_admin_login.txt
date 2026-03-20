@@ -1,0 +1,76 @@
+═══════════════════════════════════════════════════════════════════
+  v1.2.2 — Embedded Keypair / One-Click Admin Login
+═══════════════════════════════════════════════════════════════════
+
+Version:  1.2.2
+Date:     2026-03-19
+Type:     feat
+Commit:   v1.2.2 brian-horton feat: embedded keypair one-click admin login
+
+─────────────────────────────────────────────────────────────────
+  ISSUES
+─────────────────────────────────────────────────────────────────
+
+  1. Admin login required manually selecting a private key file
+     via a browser file picker — poor UX for mass deployment.
+
+  2. The private key (admin_priv.pem) lived in the project root,
+     separate from the public key in admin_keys/. Confusing
+     layout for new users.
+
+  3. For a "download → drop keys → build → deploy" workflow
+     targeting 1000s of operators, the file picker was a
+     friction point. Users had to know where their key file was.
+
+─────────────────────────────────────────────────────────────────
+  CHANGES
+─────────────────────────────────────────────────────────────────
+
+  1. Both keys now live in admin_keys/:
+       admin_keys/admin_pub.pem   (public key — verifies signatures)
+       admin_keys/admin_priv.pem  (private key — signs challenges)
+
+  2. Both keys are embedded at build time via include_str!() in
+     src/admin/auth.rs. The private key is served to the browser
+     through a new endpoint.
+
+  3. New public endpoint: GET /admin/api/auth/key
+     Returns the embedded private key PEM as JSON. The browser
+     fetches this automatically during login.
+
+  4. Admin login page redesigned:
+     - Removed file picker input
+     - Removed file-input CSS styles
+     - One-click "Sign In" button — fetches embedded key from
+       server, requests challenge, signs it, verifies, done.
+
+  5. Updated scripts/gen-admin-keys.sh:
+     - Both keys now output to admin_keys/ directory
+     - Updated comments to reflect new security model
+
+  6. Updated .gitignore:
+     - Added admin_keys/admin_priv.pem (each deployment unique)
+
+  7. Updated admin_keys/README with deployment workflow docs.
+
+  Security model: whoever builds the binary controls the keypair.
+  Network access to /admin/ is the security boundary.
+
+─────────────────────────────────────────────────────────────────
+  DEPLOYMENT WORKFLOW (for mass deployment)
+─────────────────────────────────────────────────────────────────
+
+  1. Download/clone the project
+  2. Run: ./scripts/gen-admin-keys.sh
+  3. Build: cargo build --target x86_64-unknown-hermit --release
+  4. Create image: sudo ./scripts/make-image.sh
+  5. Deploy to Digital Ocean / QEMU / any KVM host
+  6. Open https://<appliance>/admin/ → click "Sign In" → done
+
+─────────────────────────────────────────────────────────────────
+  BUILD STATUS
+─────────────────────────────────────────────────────────────────
+
+  cargo build --target x86_64-unknown-hermit → PASS (0 errors)
+
+═══════════════════════════════════════════════════════════════════
