@@ -123,17 +123,23 @@ impl HttpRequest {
 
 /// Write an HTTP/1.1 response to any writable stream.
 ///
-/// Builds the entire response (headers + body) in a single buffer
-/// and sends it with one write_all + flush. This produces a single
-/// TLS record, which is critical for smoltcp reliability — multiple
-/// small writes can create multiple TLS records that may not all
-/// be transmitted before the connection closes.
+/// For small responses (under CHUNK_SIZE), builds and sends in one shot
+/// to produce a single TLS record (critical for smoltcp reliability).
+///
+/// For large responses (admin UI, etc.), sends headers first then writes
+/// the body in chunks to avoid overwhelming the RTL8139's 4 TX descriptors.
 pub fn write_response<W: Write + ?Sized>(
     writer: &mut W,
     status: u16,
     content_type: &str,
     body: &[u8],
 ) -> std::io::Result<()> {
+    // RTL8139 has only 4 TX descriptors. Each TLS record becomes one or
+    // more TCP segments. Large single writes create huge TLS records that
+    // generate more TCP segments than the NIC can buffer, causing a panic.
+    // Chunk size of 4KB keeps each TLS record small enough.
+    const CHUNK_SIZE: usize = 4096;
+
     let reason = status_reason(status);
 
     let header = format!(
@@ -141,12 +147,23 @@ pub fn write_response<W: Write + ?Sized>(
         status, reason, content_type, body.len()
     );
 
-    let mut response = Vec::with_capacity(header.len() + body.len());
-    response.extend_from_slice(header.as_bytes());
-    response.extend_from_slice(body);
+    if header.len() + body.len() <= CHUNK_SIZE {
+        // Small response — single write (one TLS record)
+        let mut response = Vec::with_capacity(header.len() + body.len());
+        response.extend_from_slice(header.as_bytes());
+        response.extend_from_slice(body);
+        writer.write_all(&response)?;
+        writer.flush()?;
+    } else {
+        // Large response — send headers, then body in chunks
+        writer.write_all(header.as_bytes())?;
+        writer.flush()?;
 
-    writer.write_all(&response)?;
-    writer.flush()?;
+        for chunk in body.chunks(CHUNK_SIZE) {
+            writer.write_all(chunk)?;
+            writer.flush()?;
+        }
+    }
 
     Ok(())
 }

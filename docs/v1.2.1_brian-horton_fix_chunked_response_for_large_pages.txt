@@ -1,0 +1,23 @@
+Version: 1.2.1
+Type: Fix
+Date: 2026-03-19
+
+Issues:
+  1. Admin console HTML page (48KB) caused RTL8139 NIC driver panic:
+     "Unable to get TX buffer" at src/drivers/net/rtl8139.rs:550.
+     Root cause: write_response() sent the entire 48KB+ response in one
+     write_all() call, creating a massive TLS record. This generated more
+     TCP segments than the RTL8139's 4 TX descriptors could buffer,
+     causing the kernel to panic.
+
+Changes:
+  1. Modified http::write_response() to handle large responses:
+     - Small responses (under 4KB): sent in one shot as before (single
+       TLS record, reliable for smoltcp)
+     - Large responses (over 4KB): headers sent first, then body written
+       in 4KB chunks with flush after each chunk. This keeps each TLS
+       record small enough for the RTL8139 to handle.
+     - Threshold of 4KB chosen to stay well within the RTL8139's TX
+       buffer capacity while minimizing round trips.
+
+Build Status: PASS — cargo build --target x86_64-unknown-hermit --release compiles with zero errors.
