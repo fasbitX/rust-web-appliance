@@ -93,6 +93,13 @@ pub fn run(
         println!("[server] Config engine inactive (no collections)");
     }
 
+    let vhost: Arc<String> = Arc::new(port_config.vhost.clone());
+    if !vhost.is_empty() {
+        println!("[server] VHost enforcement: {}", vhost);
+    } else {
+        println!("[server] VHost: (any — no host filtering)");
+    }
+
     let mut handles = Vec::new();
 
     // ── Port 80: HTTP redirect ────────────────────────────────────
@@ -133,6 +140,7 @@ pub fn run(
                 storage,
                 security,
                 admin_state,
+                Arc::clone(&vhost),
             );
             handles.push(h);
         }
@@ -162,6 +170,7 @@ pub fn run(
                 storage,
                 security,
                 admin_state,
+                Arc::clone(&vhost),
             );
             handles.push(h);
         }
@@ -191,6 +200,7 @@ fn spawn_https_worker(
     storage: &'static Storage,
     security: &'static SecurityConfig,
     admin_state: &'static AdminState,
+    vhost: Arc<String>,
 ) -> thread::JoinHandle<()> {
     thread::spawn(move || {
         println!("[{}] Worker {} started", tag, worker_id);
@@ -271,7 +281,7 @@ fn spawn_https_worker(
                 tag, worker_id, request.method, request.url, peer_addr
             );
 
-            // Dispatch through auth + three-tier router
+            // Dispatch through vhost + auth + three-tier router
             let writer: Box<dyn Write + Send> = Box::new(tls_writer);
             router::handle_request(
                 request,
@@ -281,6 +291,7 @@ fn spawn_https_worker(
                 storage,
                 security,
                 admin_state,
+                &vhost,
             );
         }
     })

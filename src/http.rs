@@ -180,6 +180,7 @@ fn status_reason(status: u16) -> &'static str {
         404 => "Not Found",
         405 => "Method Not Allowed",
         413 => "Payload Too Large",
+        421 => "Misdirected Request",
         500 => "Internal Server Error",
         503 => "Service Unavailable",
         _ => "OK",

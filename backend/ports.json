@@ -1,5 +1,5 @@
 {
-    "vhost": "",
+    "vhost": "test.fasbit.com",
     "http": {
         "port": 80,
         "mode": "redirect"

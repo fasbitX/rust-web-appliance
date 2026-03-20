@@ -1,0 +1,37 @@
+Version: 1.4.0
+Type: feat
+Author: brian-horton
+Date: 2026-03-19
+
+Issues:
+  - No Host header enforcement — any hostname could access the server
+  - Needed Apache-style VirtualHost behavior: filter, screen, reject
+    traffic not addressed to the configured hostname
+
+Changes:
+  - Added VHost Host header enforcement in router.rs
+  - Request pipeline is now: Admin → VHost check → Auth → Routes → Static → 404
+  - When vhost is configured, requests with non-matching Host header get
+    HTTP 421 Misdirected Request with JSON error body
+  - Host matching is case-insensitive and strips port suffix
+  - www prefix is handled: www.example.com matches example.com and vice versa
+  - Admin panel (/admin/*) bypasses vhost enforcement so operators can
+    always manage the appliance from any hostname (localhost, IP, etc.)
+  - Added HTTP 421 status reason to http.rs
+  - VHost string passed through server → worker → router via Arc<String>
+  - Boot log now shows "VHost enforcement: example.com" or "(any)"
+
+Request flow with vhost enabled:
+  1. /admin/* → served (bypasses vhost + API keys)
+  2. Host header check → 421 if mismatch
+  3. API key auth → 401/403 if missing/invalid
+  4. Compiled routes → config engine → static files → 404
+
+Files Changed:
+  - src/router.rs (vhost check + check_vhost function)
+  - src/server.rs (pass vhost Arc to workers)
+  - src/http.rs (421 status reason)
+  - version.json (1.3.4 -> 1.4.0)
+  - Cargo.toml (1.3.4 -> 1.4.0)
+
+Build Status: PASS — compiles for x86_64-unknown-hermit with zero errors
