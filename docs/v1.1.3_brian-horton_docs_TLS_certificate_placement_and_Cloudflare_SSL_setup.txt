@@ -1,0 +1,31 @@
+Version: 1.1.3
+Type: Docs
+Date: 2026-03-19
+
+Issues:
+  1. No directory structure existed for deploying TLS certificates — users
+     had no clear place to put cert.pem and key.pem before syncing to VirtioFS.
+  2. No documentation on how to set up Cloudflare Origin Certificates with
+     the unikernel's native TLS.
+  3. Project had no README.md.
+
+Changes:
+  1. Created data/tls/ directory with instructional README:
+     - Cloudflare Origin Certificate setup steps
+     - Self-signed certificate generation instructions
+     - VirtioFS deployment instructions
+     - Security notes (never commit real certs)
+
+  2. Created README.md with full project documentation:
+     - Architecture overview and project layout
+     - Cloudflare SSL setup section (Origin Certificate workflow)
+     - Certificate loading priority (VirtioFS → embedded fallback)
+     - Traffic flow diagram (Client → Cloudflare → Unikernel :8443)
+     - API authentication usage
+     - Build and run commands
+
+  3. Updated .gitignore to protect TLS credentials:
+     - data/tls/*.pem, *.key, *.crt are gitignored
+     - data/tls/README is tracked (directory preserved in git)
+
+Build Status: PASS — cargo build --target x86_64-unknown-hermit compiles with zero errors.

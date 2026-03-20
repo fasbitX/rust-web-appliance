@@ -1,0 +1,61 @@
+═══════════════════════════════════════════════════════════════════
+  TLS Certificate Directory — Rust Web Appliance
+═══════════════════════════════════════════════════════════════════
+
+  Place your TLS certificate and private key here:
+
+    data/tls/cert.pem   ← Full certificate chain (PEM format)
+    data/tls/key.pem    ← Private key (PEM format, unencrypted)
+
+  The unikernel loads these from /data/tls/ at boot via VirtioFS.
+  If no files are found, it falls back to the embedded dev certificate.
+
+─────────────────────────────────────────────────────────────────
+  CLOUDFLARE ORIGIN CERTIFICATE (Recommended for production)
+─────────────────────────────────────────────────────────────────
+
+  1. Log in to Cloudflare Dashboard → your domain → SSL/TLS
+  2. Go to "Origin Server" tab
+  3. Click "Create Certificate"
+     - Private key type: ECDSA (recommended) or RSA
+     - Hostnames: your domain (e.g., *.example.com, example.com)
+     - Validity: 15 years (default)
+  4. Copy the Origin Certificate → save as  data/tls/cert.pem
+  5. Copy the Private Key       → save as  data/tls/key.pem
+  6. Set Cloudflare SSL mode to "Full (Strict)"
+
+  The unikernel picks up the certs on next boot — no rebuild needed.
+
+─────────────────────────────────────────────────────────────────
+  SELF-SIGNED CERTIFICATE (For development/testing)
+─────────────────────────────────────────────────────────────────
+
+  Generate a self-signed cert with the included script:
+
+    ./scripts/gen-cert.sh data/tls
+
+  This creates cert.pem and key.pem in this directory.
+
+─────────────────────────────────────────────────────────────────
+  VIRTIOFS DEPLOYMENT
+─────────────────────────────────────────────────────────────────
+
+  When running with VirtioFS, sync this directory to the shared
+  filesystem so the guest can read it at /data/tls/:
+
+    cp data/tls/cert.pem /tmp/guestfs/data/tls/cert.pem
+    cp data/tls/key.pem  /tmp/guestfs/data/tls/key.pem
+
+  For remote/production servers using KVM + VirtioFS, place the
+  certs in whatever directory is shared as /data/ on the guest.
+
+─────────────────────────────────────────────────────────────────
+  SECURITY NOTES
+─────────────────────────────────────────────────────────────────
+
+  - NEVER commit real certificates or private keys to git.
+  - The actual .pem files in this directory are gitignored.
+  - Only this README is tracked in version control.
+  - Keep private keys with restricted permissions (chmod 600).
+
+═══════════════════════════════════════════════════════════════════
