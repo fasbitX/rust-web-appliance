@@ -612,6 +612,10 @@ label.form-label {
 
         <!-- ── VHost ─────────────────────────────────────────── -->
         <div class="tab-panel" id="panel-vhost">
+            <div class="alert alert-error" id="vhost-persist-warning" style="display:none">
+                No VirtioFS detected — saves are in-memory only and will be lost on restart.
+                Use <code>--virtiofs</code> mode or pre-configure <code>backend/ports.json</code> on the host.
+            </div>
             <div class="alert alert-warning">Changes require restart to take effect (Ctrl+A, X to quit QEMU, then re-run).</div>
 
             <div class="card">
@@ -1459,9 +1463,16 @@ async function loadPortConfig() {
     if (!resp) return;
     try {
         var data = await resp.json();
-        document.getElementById('vhost-hostname').value = data.vhost || '';
-        document.getElementById('port-80-mode').value = (data.http && data.http.mode) || 'redirect';
-        document.getElementById('port-8443-enabled').value = (data.api && data.api.enabled) ? 'true' : 'false';
+        var config = data.config || data;
+        document.getElementById('vhost-hostname').value = config.vhost || '';
+        document.getElementById('port-80-mode').value = (config.http && config.http.mode) || 'redirect';
+        document.getElementById('port-8443-enabled').value = (config.api && config.api.enabled) ? 'true' : 'false';
+
+        // Show persistence warning
+        var warn = document.getElementById('vhost-persist-warning');
+        if (warn) {
+            warn.style.display = (data.persistent === false) ? 'block' : 'none';
+        }
     } catch (e) {
         setStatus('vhost-msg', 'Error loading port config: ' + e.message, 'error');
     }

@@ -7,12 +7,17 @@
 //   443  — Primary HTTPS traffic  (default: on)
 //   8443 — API / mobile app HTTPS (default: off)
 //
-// Configuration stored in /data/ports.json (VirtioFS).
-// Falls back to defaults when file is absent.
+// Configuration load order:
+//   1. Storage KV entry "_ports" (admin UI saves go here)
+//   2. /backend/ports.json       (pre-configured file via VirtioFS)
+//   3. Built-in defaults
+//
 // Changes require restart to take effect.
 // ═══════════════════════════════════════════════════════════════════
 
 use serde::{Deserialize, Serialize};
+
+use crate::storage::Storage;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PortConfig {
@@ -106,34 +111,40 @@ impl Default for PortConfig {
     }
 }
 
+const STORAGE_KEY: &str = "_ports";
+
 impl PortConfig {
-    /// Load port configuration from /data/ports.json or use defaults.
-    pub fn load() -> Self {
-        match std::fs::read_to_string("/data/ports.json") {
-            Ok(contents) => match serde_json::from_str(&contents) {
-                Ok(config) => {
-                    println!("[ports] Loaded configuration from /data/ports.json");
-                    config
-                }
-                Err(e) => {
-                    println!("[ports] Failed to parse /data/ports.json: {}", e);
-                    println!("[ports] Using default configuration");
-                    PortConfig::default()
-                }
-            },
-            Err(_) => {
-                println!("[ports] No /data/ports.json found, using defaults");
-                PortConfig::default()
+    /// Load port configuration.
+    /// Priority: Storage KV → /backend/ports.json → defaults.
+    pub fn load(storage: &Storage) -> Self {
+        // 1. Storage KV (admin UI saves)
+        if let Some(json) = storage.get(STORAGE_KEY) {
+            if let Ok(config) = serde_json::from_str::<PortConfig>(&json) {
+                println!("[ports] Loaded configuration from storage");
+                return config;
             }
         }
+
+        // 2. Pre-configured file (VirtioFS backend/ directory)
+        if let Ok(contents) = std::fs::read_to_string("/backend/ports.json") {
+            if let Ok(config) = serde_json::from_str::<PortConfig>(&contents) {
+                println!("[ports] Loaded configuration from /backend/ports.json");
+                return config;
+            }
+        }
+
+        // 3. Defaults
+        println!("[ports] Using default configuration");
+        PortConfig::default()
     }
 
-    /// Save port configuration to /data/ports.json.
-    pub fn save(&self) -> Result<(), String> {
+    /// Save port configuration to storage.
+    pub fn save(&self, storage: &Storage) -> Result<(), String> {
         let json =
             serde_json::to_string_pretty(self).map_err(|e| format!("serialize: {}", e))?;
-        std::fs::write("/data/ports.json", json.as_bytes())
-            .map_err(|e| format!("write /data/ports.json: {}", e))?;
+        storage
+            .set(STORAGE_KEY, &json)
+            .map_err(|e| format!("save: {}", e))?;
         Ok(())
     }
 }

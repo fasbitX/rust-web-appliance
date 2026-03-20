@@ -1,0 +1,35 @@
+Version: 1.3.3
+Type: fix
+Author: brian-horton
+Date: 2026-03-19
+
+Issues:
+  - Port config saved via admin UI was lost on restart in --basic QEMU mode
+  - PortConfig used raw std::fs::write to /data/ports.json which either failed
+    silently or wrote to ephemeral RAM without VirtioFS
+  - No warning shown when storage is non-persistent
+
+Changes:
+  - PortConfig now uses the Storage KV layer (same as all other data)
+    - VirtioFS mode: persists to /data/_ports.json on host filesystem
+    - Basic mode: saves to in-memory HashMap (survives within session)
+  - Load priority: Storage KV → /backend/ports.json → built-in defaults
+  - Added backend/ports.json as a pre-configured template
+    - Edit this file on the host and copy to VirtioFS shared dir for persistence
+  - Added Storage::is_persistent() method to check backend type
+  - Admin API GET /admin/api/ports now returns { persistent, config } envelope
+  - Admin API PUT response includes persistence warning when in-memory
+  - Admin UI VHost tab shows red banner when VirtioFS is not available
+
+Files Changed:
+  - src/ports.rs (rewired to Storage layer)
+  - src/storage.rs (added is_persistent())
+  - src/admin/ports_manager.rs (pass storage, persistence info in response)
+  - src/admin/mod.rs (pass storage to ports handlers)
+  - src/main.rs (pass storage to PortConfig::load)
+  - admin_ui/admin.html (persistence warning, updated JSON parsing)
+  - backend/ports.json (new default template)
+  - version.json (1.3.2 -> 1.3.3)
+  - Cargo.toml (1.3.2 -> 1.3.3)
+
+Build Status: PASS — compiles for x86_64-unknown-hermit with zero errors

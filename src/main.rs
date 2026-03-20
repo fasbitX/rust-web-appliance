@@ -105,7 +105,7 @@ fn main() {
 
     // ── Load port configuration ──────────────────────────────────────
     println!("[init] Loading port configuration...");
-    let port_config = ports::PortConfig::load();
+    let port_config = ports::PortConfig::load(storage);
     println!("[init] VHost: {}", if port_config.vhost.is_empty() { "(any)" } else { &port_config.vhost });
     println!("[init] Port 80  (HTTP):  {}", if port_config.http.mode == "redirect" { "redirect -> HTTPS" } else { "off" });
     println!("[init] Port 443 (HTTPS): {}", if port_config.https.enabled { "on" } else { "off" });

@@ -1,0 +1,15 @@
+{
+    "vhost": "",
+    "http": {
+        "port": 80,
+        "mode": "redirect"
+    },
+    "https": {
+        "port": 443,
+        "enabled": true
+    },
+    "api": {
+        "port": 8443,
+        "enabled": false
+    }
+}

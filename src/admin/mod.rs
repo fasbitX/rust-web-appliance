@@ -177,10 +177,10 @@ pub fn handle(
             }
 
             ("GET", "/admin/api/ports") => {
-                ports_manager::handle_get(writer);
+                ports_manager::handle_get(writer, storage);
             }
             ("PUT", "/admin/api/ports") => {
-                ports_manager::handle_put(request, writer);
+                ports_manager::handle_put(request, writer, storage);
             }
 
             // KV browser — prefix match for /admin/api/kv/*

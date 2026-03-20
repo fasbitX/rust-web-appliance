@@ -107,6 +107,11 @@ impl Storage {
         }
     }
 
+    /// Returns true if storage is backed by VirtioFS (persistent across restarts).
+    pub fn is_persistent(&self) -> bool {
+        matches!(&self.backend, Backend::Filesystem { .. })
+    }
+
     pub fn list_keys(&self) -> Result<Vec<String>, Box<dyn std::error::Error>> {
         match &self.backend {
             Backend::Filesystem { base } => {
