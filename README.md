@@ -13,7 +13,7 @@ cargo build --target x86_64-unknown-hermit
 
 # Access:
 #   https://localhost:9443       (primary HTTPS — port 443)
-#   http://localhost:8080        (HTTP redirect — port 80)
+#   http://localhost:10080        (HTTP redirect — port 80)
 #   https://localhost:18443      (API/mobile — port 8443, off by default)
 ```
 
@@ -42,7 +42,7 @@ Port configuration is stored in `/data/ports.json` on VirtioFS:
 
 | Host | Guest | Service |
 |------|-------|---------|
-| `localhost:8080` | `:80` | HTTP redirect |
+| `localhost:10080` | `:80` | HTTP redirect |
 | `localhost:9443` | `:443` | Primary HTTPS |
 | `localhost:18443` | `:8443` | API / mobile HTTPS |
 
