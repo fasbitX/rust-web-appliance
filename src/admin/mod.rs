@@ -24,6 +24,8 @@
 //   PUT  /admin/api/endpoints       → update endpoints.json
 //   GET  /admin/api/security        → API key config
 //   PUT  /admin/api/security        → update API key config
+//   GET  /admin/api/ports           → port configuration
+//   PUT  /admin/api/ports           → update port config
 //   GET  /admin/*                   → serve embedded admin UI
 // ═══════════════════════════════════════════════════════════════════
 
@@ -32,6 +34,7 @@ pub mod dashboard;
 pub mod endpoints;
 pub mod kv_browser;
 pub mod logs;
+pub mod ports_manager;
 pub mod security_manager;
 pub mod session;
 pub mod tls_manager;
@@ -171,6 +174,13 @@ pub fn handle(
             }
             ("PUT", "/admin/api/security") => {
                 security_manager::handle_put(request, writer, storage);
+            }
+
+            ("GET", "/admin/api/ports") => {
+                ports_manager::handle_get(writer);
+            }
+            ("PUT", "/admin/api/ports") => {
+                ports_manager::handle_put(request, writer);
             }
 
             // KV browser — prefix match for /admin/api/kv/*

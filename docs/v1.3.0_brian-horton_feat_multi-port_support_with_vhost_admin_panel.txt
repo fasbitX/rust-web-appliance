@@ -1,0 +1,38 @@
+Version: 1.3.0
+Type: feat
+Author: brian-horton
+Date: 2026-03-19
+
+Issues:
+  - Server only listened on port 8443; needed standard HTTP/HTTPS ports
+  - No HTTP-to-HTTPS redirect capability
+  - No admin UI for managing port configuration or virtual hosts
+  - Port 8443 needed for Cloudflare-compatible API/mobile traffic
+
+Changes:
+  - Added multi-port listener support (ports 80, 443, 8443)
+  - Port 80 (HTTP): configurable redirect-to-HTTPS or off (default: redirect)
+  - Port 443 (HTTPS): primary web traffic, always on
+  - Port 8443 (HTTPS): API/mobile app traffic, default off, Cloudflare-compatible
+  - New src/ports.rs: PortConfig struct with load/save from /data/ports.json
+  - Refactored src/server.rs: extracted spawn_https_worker() for shared HTTPS
+    worker logic, added run_http_redirect() for port 80 301 redirects
+  - Updated src/main.rs: loads port config, prints port status at boot
+  - New src/admin/ports_manager.rs: GET/PUT /admin/api/ports endpoints
+  - Added VHost tab to admin panel with hostname field and port config table
+  - Updated scripts/run-qemu.sh: forwards all three ports (8080->80, 9443->443, 18443->8443)
+  - Updated README.md with port documentation, QEMU forwarding table, traffic flow
+
+Files Changed:
+  - src/ports.rs (new)
+  - src/admin/ports_manager.rs (new)
+  - src/server.rs (refactored for multi-port)
+  - src/main.rs (port config loading)
+  - src/admin/mod.rs (ports routes)
+  - admin_ui/admin.html (VHost tab)
+  - scripts/run-qemu.sh (port forwarding)
+  - README.md (documentation)
+  - version.json (1.2.2 -> 1.3.0)
+  - Cargo.toml (1.2.2 -> 1.3.0)
+
+Build Status: PASS — compiles for x86_64-unknown-hermit with zero errors

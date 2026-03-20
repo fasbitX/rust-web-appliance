@@ -11,8 +11,40 @@ cargo build --target x86_64-unknown-hermit
 # Run in QEMU
 ./scripts/run-qemu.sh
 
-# Access: https://localhost:9443
+# Access:
+#   https://localhost:9443       (primary HTTPS — port 443)
+#   http://localhost:8080        (HTTP redirect — port 80)
+#   https://localhost:18443      (API/mobile — port 8443, off by default)
 ```
+
+## Ports
+
+| Port | Protocol | Purpose | Default |
+|------|----------|---------|---------|
+| 80   | HTTP     | Redirect to HTTPS (301) | Redirect (on) |
+| 443  | HTTPS    | Primary web traffic | Always on |
+| 8443 | HTTPS    | API / mobile app traffic | Off |
+
+Port 8443 is a Cloudflare-compatible proxied HTTPS port for public API access, mobile apps, and third-party integrations. Enable it in the admin panel under **VHost** or in `/data/ports.json`.
+
+Port configuration is stored in `/data/ports.json` on VirtioFS:
+
+```json
+{
+  "vhost": "",
+  "http":  { "port": 80,   "mode": "redirect" },
+  "https": { "port": 443,  "enabled": true },
+  "api":   { "port": 8443, "enabled": false }
+}
+```
+
+**QEMU port forwarding (basic mode):**
+
+| Host | Guest | Service |
+|------|-------|---------|
+| `localhost:8080` | `:80` | HTTP redirect |
+| `localhost:9443` | `:443` | Primary HTTPS |
+| `localhost:18443` | `:8443` | API / mobile HTTPS |
 
 ## Architecture
 
@@ -89,7 +121,9 @@ When deploying behind Cloudflare, use a **Cloudflare Origin Certificate** for en
 
 ```
 Traffic Flow:
-  Client ──HTTPS──→ Cloudflare ──HTTPS──→ Unikernel :8443
+  Client ──HTTPS──→ Cloudflare ──HTTPS──→ Unikernel :443  (primary traffic)
+  Client ──HTTP───→ Cloudflare ──HTTP───→ Unikernel :80   (301 redirect)
+  Mobile ──HTTPS──→ Cloudflare ──HTTPS──→ Unikernel :8443 (API / data access)
                      (edge TLS)           (origin TLS with Cloudflare cert)
 ```
 

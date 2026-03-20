@@ -23,6 +23,7 @@ use hermit as _;
 mod admin;
 mod api;
 mod http;
+mod ports;
 mod router;
 mod security;
 mod server;
@@ -102,12 +103,20 @@ fn main() {
     println!("[init] Admin console ready at /admin/");
     println!();
 
-    // ── Start the HTTPS server ──────────────────────────────────────
-    let bind_addr = "0.0.0.0:8443";
-    println!("[init] Starting HTTPS server on {}", bind_addr);
+    // ── Load port configuration ──────────────────────────────────────
+    println!("[init] Loading port configuration...");
+    let port_config = ports::PortConfig::load();
+    println!("[init] VHost: {}", if port_config.vhost.is_empty() { "(any)" } else { &port_config.vhost });
+    println!("[init] Port 80  (HTTP):  {}", if port_config.http.mode == "redirect" { "redirect -> HTTPS" } else { "off" });
+    println!("[init] Port 443 (HTTPS): {}", if port_config.https.enabled { "on" } else { "off" });
+    println!("[init] Port 8443 (API):  {}", if port_config.api.enabled { "on" } else { "off" });
     println!();
 
-    if let Err(e) = server::run(bind_addr, tls_holder, storage, security, admin_state) {
+    // ── Start the multi-port server ──────────────────────────────────
+    println!("[init] Starting server...");
+    println!();
+
+    if let Err(e) = server::run(&port_config, tls_holder, storage, security, admin_state) {
         eprintln!("[FATAL] Server error: {}", e);
     }
 

@@ -14,7 +14,9 @@
 #   ./scripts/run-qemu.sh --virtiofs   # TAP + VirtioFS (full stack)
 #
 # Port forwarding (basic mode):
-#   Host https://localhost:9443 → Guest :8443
+#   Host http://localhost:8080   → Guest :80   (HTTP redirect)
+#   Host https://localhost:9443  → Guest :443  (primary HTTPS)
+#   Host https://localhost:18443 → Guest :8443 (API / mobile HTTPS)
 # ═══════════════════════════════════════════════════════════════════
 set -euo pipefail
 
@@ -101,10 +103,12 @@ case "$MODE" in
         # No root required. HTTPS accessible at localhost:9443
         # RTL8139 NIC is REQUIRED for QEMU user-mode (SLIRP) networking.
         # DHCP (dhcpv4 feature) handles IP assignment — SLIRP assigns 10.0.2.15.
-        echo "[qemu] User-mode networking: localhost:9443 → guest:8443 (HTTPS)"
-        echo "[qemu] NIC: RTL8139 (required for SLIRP)"
+        echo "[qemu] User-mode networking (RTL8139 / SLIRP):"
+        echo "[qemu]   localhost:8080  → guest:80   (HTTP redirect)"
+        echo "[qemu]   localhost:9443  → guest:443  (primary HTTPS)"
+        echo "[qemu]   localhost:18443 → guest:8443 (API / mobile HTTPS)"
         exec "${QEMU_BASE[@]}" \
-            -netdev "user,id=u1,hostfwd=tcp::9443-:8443" \
+            -netdev "user,id=u1,hostfwd=tcp::8080-:80,hostfwd=tcp::9443-:443,hostfwd=tcp::18443-:8443" \
             -device "rtl8139,netdev=u1"
         ;;
 

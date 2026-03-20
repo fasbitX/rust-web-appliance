@@ -586,6 +586,7 @@ label.form-label {
 
     <nav class="tab-bar">
         <button class="tab-btn active" data-tab="dashboard">Dashboard</button>
+        <button class="tab-btn" data-tab="vhost">VHost</button>
         <button class="tab-btn" data-tab="logs">Logs</button>
         <button class="tab-btn" data-tab="tls">TLS</button>
         <button class="tab-btn" data-tab="kv">KV Store</button>
@@ -607,6 +608,81 @@ label.form-label {
                 <div class="stat-card"><div class="label">TLS Source</div><div class="value" id="stat-tls" style="font-size:14px">--</div></div>
             </div>
             <div class="refresh-hint" id="dashboard-refresh-hint">Auto-refreshes every 10 seconds</div>
+        </div>
+
+        <!-- ── VHost ─────────────────────────────────────────── -->
+        <div class="tab-panel" id="panel-vhost">
+            <div class="alert alert-warning">Changes require reboot to take effect.</div>
+
+            <div class="card">
+                <h3>Virtual Host</h3>
+                <div class="form-row">
+                    <label class="form-label" for="vhost-hostname">Hostname</label>
+                    <input type="text" id="vhost-hostname" placeholder="e.g., example.com (leave empty to accept any host)">
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Port Configuration</h3>
+                <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px">
+                    Ports aligned with Cloudflare proxied HTTPS ports.
+                </p>
+                <div style="overflow-x:auto">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Port</th>
+                                <th>Protocol</th>
+                                <th>Purpose</th>
+                                <th>Status</th>
+                                <th style="width:120px">Default</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="mono">80</td>
+                                <td>HTTP</td>
+                                <td>Redirect to HTTPS</td>
+                                <td>
+                                    <select id="port-80-mode" style="width:auto;min-width:120px">
+                                        <option value="redirect">Redirect</option>
+                                        <option value="off">Off</option>
+                                    </select>
+                                </td>
+                                <td><span style="color:var(--accent)">Redirect</span></td>
+                            </tr>
+                            <tr>
+                                <td class="mono">443</td>
+                                <td>HTTPS</td>
+                                <td>Primary web traffic</td>
+                                <td><span style="color:#3fb950;font-weight:600">Always On</span></td>
+                                <td><span style="color:#3fb950">On</span></td>
+                            </tr>
+                            <tr>
+                                <td class="mono">8443</td>
+                                <td>HTTPS</td>
+                                <td>API / mobile app traffic</td>
+                                <td>
+                                    <select id="port-8443-enabled" style="width:auto;min-width:120px">
+                                        <option value="true">On</option>
+                                        <option value="false">Off</option>
+                                    </select>
+                                </td>
+                                <td><span style="color:var(--text-muted)">Off</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <p style="font-size:12px;color:var(--text-muted);margin-top:12px">
+                    Port 8443 is a Cloudflare-compatible proxied HTTPS port for public API and data access (mobile apps, third-party integrations).
+                </p>
+            </div>
+
+            <div class="form-actions">
+                <button class="btn btn-success" onclick="savePortConfig()">Save Configuration</button>
+                <button class="btn btn-outline" onclick="loadPortConfig()">Reload</button>
+            </div>
+            <div class="status-msg" id="vhost-msg"></div>
         </div>
 
         <!-- ── Logs ──────────────────────────────────────────── -->
@@ -968,6 +1044,7 @@ function switchTab(tabName) {
     stopAllTimers();
     switch (tabName) {
         case 'dashboard': loadDashboard(); startDashboardTimer(); break;
+        case 'vhost': loadPortConfig(); break;
         case 'logs': loadLogs(); break;
         case 'tls': loadTls(); break;
         case 'kv': loadKvKeys(); break;
@@ -1369,6 +1446,57 @@ async function saveSecurityConfig() {
         loadSecurity(); // Reload to get masked previews
     } else {
         setStatus('security-msg', data.error || 'Save failed.', 'error');
+    }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   VHOST / PORTS
+   ════════════════════════════════════════════════════════════════ */
+
+async function loadPortConfig() {
+    setStatus('vhost-msg', '', '');
+    var resp = await adminFetch('/admin/api/ports');
+    if (!resp) return;
+    try {
+        var data = await resp.json();
+        document.getElementById('vhost-hostname').value = data.vhost || '';
+        document.getElementById('port-80-mode').value = (data.http && data.http.mode) || 'redirect';
+        document.getElementById('port-8443-enabled').value = (data.api && data.api.enabled) ? 'true' : 'false';
+    } catch (e) {
+        setStatus('vhost-msg', 'Error loading port config: ' + e.message, 'error');
+    }
+}
+
+async function savePortConfig() {
+    var config = {
+        vhost: document.getElementById('vhost-hostname').value.trim(),
+        http: {
+            port: 80,
+            mode: document.getElementById('port-80-mode').value
+        },
+        https: {
+            port: 443,
+            enabled: true
+        },
+        api: {
+            port: 8443,
+            enabled: document.getElementById('port-8443-enabled').value === 'true'
+        }
+    };
+
+    setStatus('vhost-msg', 'Saving...', '');
+    var resp = await adminFetch('/admin/api/ports', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config)
+    });
+
+    if (!resp) return;
+    var data = await resp.json().catch(function() { return {}; });
+    if (resp.ok) {
+        setStatus('vhost-msg', data.status || 'Saved. Reboot required for changes to take effect.', 'success');
+    } else {
+        setStatus('vhost-msg', data.error || 'Save failed.', 'error');
     }
 }
 
