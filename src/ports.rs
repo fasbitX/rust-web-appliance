@@ -8,9 +8,9 @@
 //   8443 — API / mobile app HTTPS (default: off)
 //
 // Configuration load order:
-//   1. Storage KV entry "_ports" (admin UI saves go here)
+//   1. Storage KV entry "_ports" (admin UI saves, persistent with VirtioFS)
 //   2. /backend/ports.json       (pre-configured file via VirtioFS)
-//   3. Built-in defaults
+//   3. Embedded backend/ports.json (compiled into binary — always available)
 //
 // Changes require restart to take effect.
 // ═══════════════════════════════════════════════════════════════════
@@ -113,11 +113,15 @@ impl Default for PortConfig {
 
 const STORAGE_KEY: &str = "_ports";
 
+/// backend/ports.json compiled into the binary at build time.
+/// Edit this file, rebuild, and your config is baked in — no VirtioFS needed.
+const EMBEDDED_CONFIG: &str = include_str!("../backend/ports.json");
+
 impl PortConfig {
     /// Load port configuration.
-    /// Priority: Storage KV → /backend/ports.json → defaults.
+    /// Priority: Storage KV → VirtioFS /backend/ports.json → embedded (compiled-in).
     pub fn load(storage: &Storage) -> Self {
-        // 1. Storage KV (admin UI saves)
+        // 1. Storage KV (admin UI saves — persistent with VirtioFS)
         if let Some(json) = storage.get(STORAGE_KEY) {
             if let Ok(config) = serde_json::from_str::<PortConfig>(&json) {
                 println!("[ports] Loaded configuration from storage");
@@ -125,7 +129,7 @@ impl PortConfig {
             }
         }
 
-        // 2. Pre-configured file (VirtioFS backend/ directory)
+        // 2. VirtioFS file (runtime override without rebuild)
         if let Ok(contents) = std::fs::read_to_string("/backend/ports.json") {
             if let Ok(config) = serde_json::from_str::<PortConfig>(&contents) {
                 println!("[ports] Loaded configuration from /backend/ports.json");
@@ -133,9 +137,17 @@ impl PortConfig {
             }
         }
 
-        // 3. Defaults
-        println!("[ports] Using default configuration");
-        PortConfig::default()
+        // 3. Embedded config (compiled into binary from backend/ports.json)
+        match serde_json::from_str::<PortConfig>(EMBEDDED_CONFIG) {
+            Ok(config) => {
+                println!("[ports] Loaded embedded configuration (compiled-in)");
+                config
+            }
+            Err(_) => {
+                println!("[ports] Using hardcoded defaults");
+                PortConfig::default()
+            }
+        }
     }
 
     /// Save port configuration to storage.
