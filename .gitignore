@@ -26,6 +26,9 @@ Thumbs.db
 .claude/projects/
 .claude/memory/
 
+# Admin private key — NEVER commit this
+admin_priv.pem
+
 # TLS certificates — never commit real certs/keys
 data/tls/*.pem
 data/tls/*.key

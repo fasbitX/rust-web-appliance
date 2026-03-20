@@ -1,0 +1,90 @@
+Version: 1.2.0
+Type: Feature
+Date: 2026-03-19
+
+Issues:
+  1. The unikernel has no shell, no SSH, and no way to manage it
+     after deployment. Administrators cannot view logs, change TLS
+     certificates, manage API keys, or monitor the system without
+     rebuilding and redeploying the entire image.
+
+Changes:
+
+  1. Admin Console (src/admin/ — 9 new files)
+     - Web-based management UI at /admin/ served over existing HTTPS port
+     - Ed25519 public key authentication (no passwords)
+     - Admin public key embedded at build time (admin_keys/admin_pub.pem)
+     - Challenge-response login via Web Crypto API in the browser
+     - Session tokens with 1-hour expiry, stored in memory
+
+  2. Authentication System (src/admin/auth.rs, src/admin/session.rs)
+     - Ed25519 challenge-response: server generates random nonce,
+       browser signs with private key, server verifies with embedded
+       public key using ed25519-dalek
+     - Session management: 32-byte random tokens, max 16 concurrent
+       sessions, automatic expiry cleanup
+     - Admin routes bypass API key auth (separate auth mechanism)
+
+  3. Admin Modules
+     - Dashboard: version, uptime, request count, active sessions,
+       storage keys, TLS source (src/admin/dashboard.rs)
+     - Log Viewer: ring buffer capturing last 2000 log lines, view
+       and clear via API (src/admin/logs.rs)
+     - TLS Manager: view cert info, upload new cert+key PEM files,
+       hot-reload TLS without reboot (src/admin/tls_manager.rs)
+     - KV Browser: list/read/write/delete storage entries
+       (src/admin/kv_browser.rs)
+     - Endpoint Config: view/edit endpoints.json
+       (src/admin/endpoints.rs)
+     - Security Manager: view/edit API keys with role validation
+       (src/admin/security_manager.rs)
+
+  4. TLS Hot-Reload (src/tls.rs, src/server.rs)
+     - Server TLS config wrapped in Arc<RwLock<Arc<ServerConfig>>>
+     - Workers read current config per-connection (brief read lock)
+     - Admin TLS upload writes certs to /data/tls/ and swaps config
+     - Next connection uses new certs, existing connections unaffected
+
+  5. Admin UI (admin_ui/admin.html)
+     - Single embedded HTML file with inline CSS + JavaScript
+     - Dark theme, tabbed interface: Dashboard, Logs, TLS, KV Store,
+       Endpoints, Security
+     - Login screen with Ed25519 private key file picker
+     - Auto-refreshing dashboard and log viewer
+     - Zero external dependencies — no CDN, no build step
+
+  6. Admin Key Infrastructure
+     - admin_keys/admin_pub.pem: Ed25519 public key (committed)
+     - admin_priv.pem: private key at project root (gitignored)
+     - scripts/gen-admin-keys.sh: keypair generation script
+     - admin_keys/README: key management instructions
+
+  7. Router Integration (src/router.rs)
+     - Tier 0 added: /admin/* requests intercepted before API key
+       auth and dispatched to admin console handler
+     - Existing API routes unchanged
+
+  8. Dependencies
+     - ed25519-dalek 2.x: Ed25519 signature verification (was transitive)
+     - sha2 0.10: SHA-256 hashing (was transitive)
+     - rand 0.8: random nonce/token generation (was transitive)
+     - All pure Rust, already in dependency tree via rustls-rustcrypto
+
+  9. New Files
+     - src/admin/mod.rs, auth.rs, session.rs, dashboard.rs, logs.rs,
+       tls_manager.rs, kv_browser.rs, endpoints.rs, security_manager.rs,
+       ui.rs
+     - admin_ui/admin.html
+     - admin_keys/admin_pub.pem, admin_keys/README
+     - scripts/gen-admin-keys.sh
+
+  10. Modified Files
+     - Cargo.toml (deps + version)
+     - version.json (version)
+     - src/main.rs (admin init)
+     - src/server.rs (AdminState + TLS RwLock)
+     - src/router.rs (Tier 0 admin dispatch)
+     - src/tls.rs (reload_from_files)
+     - .gitignore (admin_priv.pem)
+
+Build Status: PASS — cargo build --target x86_64-unknown-hermit compiles with zero errors.

@@ -58,6 +58,35 @@ pub fn init() -> Result<Arc<ServerConfig>, Box<dyn std::error::Error>> {
     Ok(Arc::new(config))
 }
 
+/// Reload TLS config from /data/tls/ files. Used by admin console for hot-reload.
+pub fn reload_from_files() -> Result<Arc<ServerConfig>, Box<dyn std::error::Error>> {
+    let cert_pem = fs::read_to_string(CERT_PATH)
+        .map_err(|e| format!("failed to read {}: {}", CERT_PATH, e))?;
+    let key_pem = fs::read_to_string(KEY_PATH)
+        .map_err(|e| format!("failed to read {}: {}", KEY_PATH, e))?;
+
+    let certs: Vec<CertificateDer<'static>> =
+        rustls_pemfile::certs(&mut std::io::BufReader::new(cert_pem.as_bytes()))
+            .collect::<Result<Vec<_>, _>>()?;
+
+    let key = rustls_pemfile::private_key(&mut std::io::BufReader::new(key_pem.as_bytes()))?
+        .ok_or("no private key found in PEM file")?;
+
+    if certs.is_empty() {
+        return Err("no certificates found in PEM file".into());
+    }
+
+    let provider = rustls_rustcrypto::provider();
+    let config = ServerConfig::builder_with_provider(Arc::new(provider))
+        .with_safe_default_protocol_versions()?
+        .with_no_client_auth()
+        .with_single_cert(certs, key)?;
+
+    println!("[tls] Reloaded certificates from VirtioFS (/data/tls/)");
+
+    Ok(Arc::new(config))
+}
+
 fn load_certs()
     -> Result<(Vec<CertificateDer<'static>>, PrivateKeyDer<'static>, &'static str), Box<dyn std::error::Error>>
 {

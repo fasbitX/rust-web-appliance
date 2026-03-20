@@ -1,0 +1,1439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rust Web Appliance - Admin Console</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+    --bg: #0d1117;
+    --card: #161b22;
+    --border: #30363d;
+    --text: #c9d1d9;
+    --text-muted: #8b949e;
+    --accent: #58a6ff;
+    --accent-hover: #79c0ff;
+    --success: #238636;
+    --success-hover: #2ea043;
+    --danger: #da3633;
+    --danger-hover: #f85149;
+    --warning: #d29922;
+    --input-bg: #0d1117;
+    --header-bg: #010409;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+    min-height: 100vh;
+}
+
+/* ── Login Screen ────────────────────────────────────────────── */
+
+#login-screen {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 20px;
+}
+
+.login-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 40px;
+    width: 100%;
+    max-width: 440px;
+}
+
+.login-card h1 {
+    font-size: 20px;
+    font-weight: 600;
+    text-align: center;
+    margin-bottom: 8px;
+    color: var(--text);
+}
+
+.login-card .subtitle {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 13px;
+    margin-bottom: 28px;
+}
+
+.login-card label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+    margin-bottom: 6px;
+}
+
+.file-input-wrap {
+    position: relative;
+    margin-bottom: 20px;
+}
+
+.file-input-wrap input[type="file"] {
+    width: 100%;
+    padding: 8px 12px;
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.file-input-wrap input[type="file"]::file-selector-button {
+    background: var(--border);
+    color: var(--text);
+    border: none;
+    padding: 4px 12px;
+    border-radius: 4px;
+    margin-right: 10px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.file-input-wrap input[type="file"]::file-selector-button:hover {
+    background: var(--text-muted);
+    color: var(--bg);
+}
+
+#login-status {
+    margin-bottom: 16px;
+    padding: 10px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    display: none;
+}
+
+#login-status.error {
+    display: block;
+    background: rgba(218, 54, 51, 0.15);
+    border: 1px solid var(--danger);
+    color: #f85149;
+}
+
+#login-status.info {
+    display: block;
+    background: rgba(88, 166, 255, 0.1);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+}
+
+#login-status.success {
+    display: block;
+    background: rgba(35, 134, 54, 0.15);
+    border: 1px solid var(--success);
+    color: #3fb950;
+}
+
+/* ── Buttons ─────────────────────────────────────────────────── */
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 500;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.15s, border-color 0.15s;
+    font-family: inherit;
+    gap: 6px;
+}
+
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.btn-primary {
+    background: var(--accent);
+    color: #fff;
+    width: 100%;
+    padding: 10px 16px;
+}
+
+.btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
+
+.btn-success {
+    background: var(--success);
+    color: #fff;
+}
+
+.btn-success:hover:not(:disabled) { background: var(--success-hover); }
+
+.btn-danger {
+    background: var(--danger);
+    color: #fff;
+}
+
+.btn-danger:hover:not(:disabled) { background: var(--danger-hover); }
+
+.btn-outline {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+}
+
+.btn-outline:hover:not(:disabled) {
+    background: var(--border);
+}
+
+.btn-sm {
+    padding: 4px 10px;
+    font-size: 12px;
+}
+
+/* ── App Shell ───────────────────────────────────────────────── */
+
+#app-shell { display: none; }
+
+.app-header {
+    background: var(--header-bg);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.app-header .title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.app-header .title span {
+    color: var(--accent);
+    font-weight: 400;
+}
+
+.btn-logout {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    padding: 6px 14px;
+    font-size: 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.btn-logout:hover {
+    border-color: var(--danger);
+    color: var(--danger);
+}
+
+/* ── Tabs ────────────────────────────────────────────────────── */
+
+.tab-bar {
+    background: var(--header-bg);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    display: flex;
+    gap: 0;
+    overflow-x: auto;
+}
+
+.tab-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    padding: 12px 16px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+    font-family: inherit;
+    transition: color 0.15s;
+}
+
+.tab-btn:hover { color: var(--text); }
+
+.tab-btn.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+}
+
+.tab-content {
+    padding: 24px;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* ── Cards / Grid ────────────────────────────────────────────── */
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.stat-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+}
+
+.stat-card .label {
+    font-size: 12px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+}
+
+.stat-card .value {
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.stat-card .value.accent { color: var(--accent); }
+
+.card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 16px;
+}
+
+.card h3 {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 12px;
+    color: var(--text);
+}
+
+/* ── Form Elements ───────────────────────────────────────────── */
+
+textarea, input[type="text"], input[type="password"], select {
+    width: 100%;
+    padding: 8px 12px;
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 13px;
+    font-family: inherit;
+    resize: vertical;
+}
+
+textarea:focus, input[type="text"]:focus, input[type="password"]:focus, select:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.15);
+}
+
+textarea.mono {
+    font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', Consolas, monospace;
+    font-size: 12px;
+    line-height: 1.6;
+    tab-size: 2;
+}
+
+label.form-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+    margin-bottom: 6px;
+}
+
+.form-row {
+    margin-bottom: 14px;
+}
+
+.form-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-top: 16px;
+    flex-wrap: wrap;
+}
+
+/* ── Logs Terminal ───────────────────────────────────────────── */
+
+.log-terminal {
+    background: #010409;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    height: 520px;
+    overflow: auto;
+    font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', Consolas, monospace;
+    font-size: 12px;
+    line-height: 1.7;
+    color: #3fb950;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+.log-toolbar {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+}
+
+.log-toolbar label {
+    font-size: 12px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+}
+
+.log-toolbar input[type="checkbox"] {
+    accent-color: var(--accent);
+}
+
+/* ── KV Store Split Panel ────────────────────────────────────── */
+
+.kv-layout {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    gap: 16px;
+    min-height: 500px;
+}
+
+.kv-sidebar {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.kv-sidebar-header {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.kv-key-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px 0;
+}
+
+.kv-key-item {
+    padding: 8px 14px;
+    font-size: 13px;
+    cursor: pointer;
+    color: var(--text);
+    border-left: 2px solid transparent;
+    transition: background-color 0.1s;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', Consolas, monospace;
+    font-size: 12px;
+}
+
+.kv-key-item:hover { background: rgba(88, 166, 255, 0.06); }
+
+.kv-key-item.active {
+    background: rgba(88, 166, 255, 0.1);
+    border-left-color: var(--accent);
+    color: var(--accent);
+}
+
+.kv-editor {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+}
+
+.kv-editor-empty {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    font-size: 13px;
+}
+
+.kv-key-name {
+    font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', Consolas, monospace;
+    font-size: 14px;
+    color: var(--accent);
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+}
+
+/* ── Tables ──────────────────────────────────────────────────── */
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.data-table th {
+    text-align: left;
+    padding: 10px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid var(--border);
+}
+
+.data-table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+}
+
+.data-table tr:last-child td { border-bottom: none; }
+
+.data-table .mono {
+    font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', Consolas, monospace;
+    font-size: 12px;
+}
+
+/* ── Alert / Notice ──────────────────────────────────────────── */
+
+.alert {
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-size: 13px;
+    margin-bottom: 16px;
+}
+
+.alert-warning {
+    background: rgba(210, 153, 34, 0.12);
+    border: 1px solid var(--warning);
+    color: var(--warning);
+}
+
+.alert-success {
+    background: rgba(35, 134, 54, 0.15);
+    border: 1px solid var(--success);
+    color: #3fb950;
+}
+
+.alert-error {
+    background: rgba(218, 54, 51, 0.15);
+    border: 1px solid var(--danger);
+    color: #f85149;
+}
+
+.status-msg {
+    font-size: 13px;
+    min-height: 20px;
+    margin-top: 8px;
+}
+
+/* ── Misc ────────────────────────────────────────────────────── */
+
+.inline-form {
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+    margin-bottom: 16px;
+}
+
+.inline-form .form-row { margin-bottom: 0; flex: 1; }
+
+.section-title {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 16px;
+    color: var(--text);
+}
+
+.refresh-hint {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.badge-admin { background: rgba(218, 54, 51, 0.2); color: #f85149; }
+.badge-read { background: rgba(88, 166, 255, 0.15); color: var(--accent); }
+
+@media (max-width: 768px) {
+    .kv-layout { grid-template-columns: 1fr; }
+    .stats-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+    .tab-content { padding: 16px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════════════════════ -->
+<!-- LOGIN SCREEN                                                    -->
+<!-- ════════════════════════════════════════════════════════════════ -->
+<div id="login-screen">
+    <div class="login-card">
+        <h1>Rust Web Appliance</h1>
+        <div class="subtitle">Admin Console</div>
+        <div id="login-status"></div>
+        <div class="form-row">
+            <label for="key-file">Select your admin private key (admin_priv.pem)</label>
+            <div class="file-input-wrap">
+                <input type="file" id="key-file" accept=".pem">
+            </div>
+        </div>
+        <button class="btn btn-primary" id="login-btn" onclick="doLogin()">Sign In</button>
+    </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════ -->
+<!-- APP SHELL                                                       -->
+<!-- ════════════════════════════════════════════════════════════════ -->
+<div id="app-shell">
+    <header class="app-header">
+        <div class="title">Rust Web Appliance <span>Admin</span></div>
+        <button class="btn-logout" onclick="doLogout()">Logout</button>
+    </header>
+
+    <nav class="tab-bar">
+        <button class="tab-btn active" data-tab="dashboard">Dashboard</button>
+        <button class="tab-btn" data-tab="logs">Logs</button>
+        <button class="tab-btn" data-tab="tls">TLS</button>
+        <button class="tab-btn" data-tab="kv">KV Store</button>
+        <button class="tab-btn" data-tab="endpoints">Endpoints</button>
+        <button class="tab-btn" data-tab="security">Security</button>
+    </nav>
+
+    <div class="tab-content">
+
+        <!-- ── Dashboard ─────────────────────────────────────── -->
+        <div class="tab-panel active" id="panel-dashboard">
+            <div class="stats-grid" id="dashboard-grid">
+                <div class="stat-card"><div class="label">Version</div><div class="value" id="stat-version">--</div></div>
+                <div class="stat-card"><div class="label">Uptime</div><div class="value" id="stat-uptime">--</div></div>
+                <div class="stat-card"><div class="label">Total Requests</div><div class="value accent" id="stat-requests">--</div></div>
+                <div class="stat-card"><div class="label">Active Sessions</div><div class="value" id="stat-sessions">--</div></div>
+                <div class="stat-card"><div class="label">Log Lines</div><div class="value" id="stat-log-lines">--</div></div>
+                <div class="stat-card"><div class="label">Storage Keys</div><div class="value" id="stat-storage-keys">--</div></div>
+                <div class="stat-card"><div class="label">TLS Source</div><div class="value" id="stat-tls" style="font-size:14px">--</div></div>
+            </div>
+            <div class="refresh-hint" id="dashboard-refresh-hint">Auto-refreshes every 10 seconds</div>
+        </div>
+
+        <!-- ── Logs ──────────────────────────────────────────── -->
+        <div class="tab-panel" id="panel-logs">
+            <div class="log-toolbar">
+                <button class="btn btn-outline btn-sm" onclick="loadLogs()">Refresh</button>
+                <label><input type="checkbox" id="logs-auto-refresh" onchange="toggleLogAutoRefresh()"> Auto-refresh (3s)</label>
+                <button class="btn btn-danger btn-sm" onclick="clearLogs()">Clear Logs</button>
+            </div>
+            <div class="log-terminal" id="log-output">Loading logs...</div>
+        </div>
+
+        <!-- ── TLS ───────────────────────────────────────────── -->
+        <div class="tab-panel" id="panel-tls">
+            <div class="card">
+                <h3>Current TLS Status</h3>
+                <div id="tls-status">Loading...</div>
+            </div>
+            <div class="card">
+                <h3>Upload New Certificates</h3>
+                <div class="form-row">
+                    <label class="form-label" for="tls-cert">Certificate PEM</label>
+                    <textarea id="tls-cert" class="mono" rows="8" placeholder="-----BEGIN CERTIFICATE-----&#10;...&#10;-----END CERTIFICATE-----"></textarea>
+                </div>
+                <div class="form-row">
+                    <label class="form-label" for="tls-key">Private Key PEM</label>
+                    <textarea id="tls-key" class="mono" rows="8" placeholder="-----BEGIN PRIVATE KEY-----&#10;...&#10;-----END PRIVATE KEY-----"></textarea>
+                </div>
+                <div class="form-actions">
+                    <button class="btn btn-success" onclick="uploadTls()">Upload &amp; Reload</button>
+                </div>
+                <div class="status-msg" id="tls-msg"></div>
+            </div>
+        </div>
+
+        <!-- ── KV Store ──────────────────────────────────────── -->
+        <div class="tab-panel" id="panel-kv">
+            <div class="inline-form">
+                <div class="form-row">
+                    <label class="form-label" for="kv-new-key">New Key</label>
+                    <input type="text" id="kv-new-key" placeholder="Enter key name...">
+                </div>
+                <button class="btn btn-success btn-sm" onclick="createKvKey()" style="margin-bottom:0">Create</button>
+            </div>
+            <div class="kv-layout">
+                <div class="kv-sidebar">
+                    <div class="kv-sidebar-header">Keys</div>
+                    <div class="kv-key-list" id="kv-key-list">
+                        <div style="padding:14px;color:var(--text-muted);font-size:12px">Loading...</div>
+                    </div>
+                </div>
+                <div class="kv-editor" id="kv-editor">
+                    <div class="kv-editor-empty" id="kv-empty-state">Select a key from the list to view and edit its value</div>
+                    <div id="kv-edit-area" style="display:none;flex:1;display:none;flex-direction:column">
+                        <div class="kv-key-name" id="kv-current-key"></div>
+                        <textarea id="kv-value" class="mono" style="flex:1;min-height:300px"></textarea>
+                        <div class="form-actions">
+                            <button class="btn btn-success" onclick="saveKvKey()">Save</button>
+                            <button class="btn btn-danger" onclick="deleteKvKey()">Delete</button>
+                        </div>
+                        <div class="status-msg" id="kv-msg"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Endpoints ─────────────────────────────────────── -->
+        <div class="tab-panel" id="panel-endpoints">
+            <div class="alert alert-warning">Changes require reboot to take effect.</div>
+            <div class="card">
+                <h3>endpoints.json</h3>
+                <textarea id="endpoints-editor" class="mono" rows="24" placeholder="Loading..."></textarea>
+                <div class="form-actions">
+                    <button class="btn btn-success" onclick="saveEndpoints()">Save</button>
+                    <button class="btn btn-outline" onclick="loadEndpoints()">Reload</button>
+                </div>
+                <div class="status-msg" id="endpoints-msg"></div>
+            </div>
+        </div>
+
+        <!-- ── Security ──────────────────────────────────────── -->
+        <div class="tab-panel" id="panel-security">
+            <div class="card">
+                <h3>API Keys</h3>
+                <div style="overflow-x:auto">
+                    <table class="data-table" id="security-table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Role</th>
+                                <th>Key Preview</th>
+                                <th style="width:80px"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="security-tbody">
+                            <tr><td colspan="4" style="color:var(--text-muted)">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="card">
+                <h3>Add API Key</h3>
+                <div class="form-row">
+                    <label class="form-label" for="sec-name">Name</label>
+                    <input type="text" id="sec-name" placeholder="e.g., frontend-app">
+                </div>
+                <div class="form-row">
+                    <label class="form-label" for="sec-key">Key</label>
+                    <input type="text" id="sec-key" placeholder="e.g., a long random string">
+                </div>
+                <div class="form-row">
+                    <label class="form-label" for="sec-role">Role</label>
+                    <select id="sec-role">
+                        <option value="read">read</option>
+                        <option value="admin">admin</option>
+                    </select>
+                </div>
+                <div class="form-actions">
+                    <button class="btn btn-success" onclick="addSecurityKey()">Add Key</button>
+                </div>
+                <div class="status-msg" id="security-msg"></div>
+            </div>
+        </div>
+
+    </div><!-- /.tab-content -->
+</div><!-- /#app-shell -->
+
+<script>
+/* ════════════════════════════════════════════════════════════════
+   HELPERS
+   ════════════════════════════════════════════════════════════════ */
+
+function hexToBytes(hex) {
+    var bytes = new Uint8Array(hex.length / 2);
+    for (var i = 0; i < hex.length; i += 2)
+        bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
+    return bytes;
+}
+
+function bytesToHex(bytes) {
+    return Array.from(bytes).map(function(b) { return b.toString(16).padStart(2, '0'); }).join('');
+}
+
+function escapeHtml(str) {
+    var d = document.createElement('div');
+    d.textContent = str;
+    return d.innerHTML;
+}
+
+async function adminFetch(url, options) {
+    if (!options) options = {};
+    var token = sessionStorage.getItem('adminToken');
+    if (!token) { showLogin(); return null; }
+    var headers = Object.assign({}, options.headers || {}, { 'Authorization': 'AdminToken ' + token });
+    var resp;
+    try {
+        resp = await fetch(url, Object.assign({}, options, { headers: headers }));
+    } catch (e) {
+        return null;
+    }
+    if (resp.status === 401) { showLogin(); return null; }
+    return resp;
+}
+
+function formatUptime(seconds) {
+    var d = Math.floor(seconds / 86400);
+    var h = Math.floor((seconds % 86400) / 3600);
+    var m = Math.floor((seconds % 3600) / 60);
+    var s = seconds % 60;
+    var parts = [];
+    if (d > 0) parts.push(d + 'd');
+    if (h > 0 || d > 0) parts.push(h + 'h');
+    parts.push(m + 'm');
+    parts.push(s + 's');
+    return parts.join(' ');
+}
+
+function setStatus(elId, msg, type) {
+    var el = document.getElementById(elId);
+    if (!el) return;
+    el.textContent = msg;
+    el.className = 'status-msg';
+    if (type === 'error') el.style.color = '#f85149';
+    else if (type === 'success') el.style.color = '#3fb950';
+    else el.style.color = 'var(--text-muted)';
+}
+
+/* ════════════════════════════════════════════════════════════════
+   LOGIN / AUTH
+   ════════════════════════════════════════════════════════════════ */
+
+function showLogin() {
+    sessionStorage.removeItem('adminToken');
+    document.getElementById('login-screen').style.display = 'flex';
+    document.getElementById('app-shell').style.display = 'none';
+    stopAllTimers();
+}
+
+function showApp() {
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app-shell').style.display = 'block';
+    switchTab('dashboard');
+}
+
+function loginStatus(msg, type) {
+    var el = document.getElementById('login-status');
+    el.textContent = msg;
+    el.className = type; // 'error', 'info', 'success'
+}
+
+async function doLogin() {
+    var fileInput = document.getElementById('key-file');
+    var loginBtn = document.getElementById('login-btn');
+
+    if (!fileInput.files || fileInput.files.length === 0) {
+        loginStatus('Please select your admin private key file.', 'error');
+        return;
+    }
+
+    // Check for Ed25519 support
+    try {
+        // A quick feature-detect: try importing a dummy key
+        // We test by checking if the algorithm name is accepted
+        var testSupport = crypto.subtle && typeof crypto.subtle.importKey === 'function';
+        if (!testSupport) throw new Error('no subtle');
+    } catch (e) {
+        loginStatus('Your browser does not support Ed25519. Use Chrome 113+, Firefox 130+, or Safari 17+.', 'error');
+        return;
+    }
+
+    loginBtn.disabled = true;
+    loginStatus('Reading private key...', 'info');
+
+    try {
+        // 1. Read PEM file
+        var pemText = await fileInput.files[0].text();
+
+        // 2. Strip PEM headers, decode base64 to DER
+        var b64 = pemText
+            .split('\n')
+            .filter(function(line) { return line.trim() !== '' && !line.startsWith('-----'); })
+            .join('');
+        var binaryStr = atob(b64);
+        var der = new Uint8Array(binaryStr.length);
+        for (var i = 0; i < binaryStr.length; i++) {
+            der[i] = binaryStr.charCodeAt(i);
+        }
+
+        // 3. Import as Ed25519 CryptoKey
+        var privateKey;
+        try {
+            privateKey = await crypto.subtle.importKey(
+                'pkcs8',
+                der.buffer,
+                { name: 'Ed25519' },
+                false,
+                ['sign']
+            );
+        } catch (importErr) {
+            // If the error is about the algorithm, it means the browser does not support Ed25519
+            if (importErr.name === 'NotSupportedError') {
+                loginStatus('Your browser does not support Ed25519. Use Chrome 113+, Firefox 130+, or Safari 17+.', 'error');
+            } else {
+                loginStatus('Failed to import private key: ' + importErr.message, 'error');
+            }
+            loginBtn.disabled = false;
+            return;
+        }
+
+        loginStatus('Requesting challenge...', 'info');
+
+        // 4. Fetch challenge
+        var challengeResp = await fetch('/admin/api/auth/challenge', { method: 'POST' });
+        if (!challengeResp.ok) {
+            loginStatus('Failed to get challenge from server (HTTP ' + challengeResp.status + ').', 'error');
+            loginBtn.disabled = false;
+            return;
+        }
+        var challengeData = await challengeResp.json();
+        var challengeHex = challengeData.challenge;
+
+        if (!challengeHex) {
+            loginStatus('Server returned invalid challenge response.', 'error');
+            loginBtn.disabled = false;
+            return;
+        }
+
+        loginStatus('Signing challenge...', 'info');
+
+        // 5. Sign challenge bytes
+        var challengeBytes = hexToBytes(challengeHex);
+        var signatureBuffer = await crypto.subtle.sign(
+            { name: 'Ed25519' },
+            privateKey,
+            challengeBytes
+        );
+        var signatureHex = bytesToHex(new Uint8Array(signatureBuffer));
+
+        loginStatus('Verifying signature...', 'info');
+
+        // 6. Post signature for verification
+        var verifyResp = await fetch('/admin/api/auth/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ challenge: challengeHex, signature: signatureHex })
+        });
+
+        var verifyData = await verifyResp.json();
+
+        if (!verifyResp.ok) {
+            loginStatus('Authentication failed: ' + (verifyData.error || 'unknown error'), 'error');
+            loginBtn.disabled = false;
+            return;
+        }
+
+        // 7. Store token, show dashboard
+        if (verifyData.token) {
+            sessionStorage.setItem('adminToken', verifyData.token);
+            loginStatus('Authenticated.', 'success');
+            setTimeout(showApp, 300);
+        } else {
+            loginStatus('Server did not return a session token.', 'error');
+        }
+
+    } catch (err) {
+        loginStatus('Error: ' + err.message, 'error');
+    }
+
+    loginBtn.disabled = false;
+}
+
+async function doLogout() {
+    try {
+        await adminFetch('/admin/api/auth/logout', { method: 'POST' });
+    } catch (e) { /* ignore */ }
+    showLogin();
+}
+
+/* ════════════════════════════════════════════════════════════════
+   TABS
+   ════════════════════════════════════════════════════════════════ */
+
+var tabBtns = null;
+
+function initTabs() {
+    tabBtns = document.querySelectorAll('.tab-btn');
+    tabBtns.forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            switchTab(btn.getAttribute('data-tab'));
+        });
+    });
+}
+
+function switchTab(tabName) {
+    // Update buttons
+    document.querySelectorAll('.tab-btn').forEach(function(btn) {
+        btn.classList.toggle('active', btn.getAttribute('data-tab') === tabName);
+    });
+    // Update panels
+    document.querySelectorAll('.tab-panel').forEach(function(panel) {
+        panel.classList.toggle('active', panel.id === 'panel-' + tabName);
+    });
+    // Load tab data
+    stopAllTimers();
+    switch (tabName) {
+        case 'dashboard': loadDashboard(); startDashboardTimer(); break;
+        case 'logs': loadLogs(); break;
+        case 'tls': loadTls(); break;
+        case 'kv': loadKvKeys(); break;
+        case 'endpoints': loadEndpoints(); break;
+        case 'security': loadSecurity(); break;
+    }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   TIMERS
+   ════════════════════════════════════════════════════════════════ */
+
+var dashboardTimer = null;
+var logTimer = null;
+
+function startDashboardTimer() {
+    stopDashboardTimer();
+    dashboardTimer = setInterval(loadDashboard, 10000);
+}
+
+function stopDashboardTimer() {
+    if (dashboardTimer) { clearInterval(dashboardTimer); dashboardTimer = null; }
+}
+
+function startLogTimer() {
+    stopLogTimer();
+    logTimer = setInterval(loadLogs, 3000);
+}
+
+function stopLogTimer() {
+    if (logTimer) { clearInterval(logTimer); logTimer = null; }
+}
+
+function stopAllTimers() {
+    stopDashboardTimer();
+    stopLogTimer();
+}
+
+function toggleLogAutoRefresh() {
+    var checked = document.getElementById('logs-auto-refresh').checked;
+    if (checked) startLogTimer();
+    else stopLogTimer();
+}
+
+/* ════════════════════════════════════════════════════════════════
+   DASHBOARD
+   ════════════════════════════════════════════════════════════════ */
+
+async function loadDashboard() {
+    var resp = await adminFetch('/admin/api/dashboard');
+    if (!resp) return;
+    try {
+        var data = await resp.json();
+        document.getElementById('stat-version').textContent = data.version || '--';
+        document.getElementById('stat-uptime').textContent = formatUptime(data.uptime_seconds || 0);
+        document.getElementById('stat-requests').textContent = (data.total_requests != null) ? data.total_requests.toLocaleString() : '--';
+        document.getElementById('stat-sessions').textContent = (data.active_sessions != null) ? data.active_sessions : '--';
+        document.getElementById('stat-log-lines').textContent = (data.log_buffer_lines != null) ? data.log_buffer_lines.toLocaleString() : '--';
+        document.getElementById('stat-storage-keys').textContent = (data.storage_keys != null) ? data.storage_keys : '--';
+        document.getElementById('stat-tls').textContent = data.tls_source || '--';
+    } catch (e) { /* ignore parse errors on auto-refresh */ }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   LOGS
+   ════════════════════════════════════════════════════════════════ */
+
+async function loadLogs() {
+    var resp = await adminFetch('/admin/api/logs?lines=500');
+    if (!resp) return;
+    try {
+        var data = await resp.json();
+        var el = document.getElementById('log-output');
+        if (data.lines && Array.isArray(data.lines)) {
+            el.textContent = data.lines.join('\n');
+        } else if (typeof data === 'string') {
+            el.textContent = data;
+        } else {
+            el.textContent = JSON.stringify(data, null, 2);
+        }
+        el.scrollTop = el.scrollHeight;
+    } catch (e) {
+        document.getElementById('log-output').textContent = 'Error loading logs: ' + e.message;
+    }
+}
+
+async function clearLogs() {
+    if (!confirm('Clear all log lines?')) return;
+    var resp = await adminFetch('/admin/api/logs', { method: 'DELETE' });
+    if (resp && resp.ok) loadLogs();
+}
+
+/* ════════════════════════════════════════════════════════════════
+   TLS
+   ════════════════════════════════════════════════════════════════ */
+
+async function loadTls() {
+    var resp = await adminFetch('/admin/api/tls');
+    if (!resp) return;
+    try {
+        var data = await resp.json();
+        var html = '<div style="margin-bottom:8px"><strong>Source:</strong> ' + escapeHtml(data.source || 'unknown') + '</div>';
+        html += '<div><strong>Custom Certs:</strong> ' + (data.has_custom_certs ? '<span style="color:#3fb950">Yes</span>' : '<span style="color:var(--text-muted)">No</span>') + '</div>';
+        document.getElementById('tls-status').innerHTML = html;
+    } catch (e) {
+        document.getElementById('tls-status').textContent = 'Error loading TLS info';
+    }
+}
+
+async function uploadTls() {
+    var cert = document.getElementById('tls-cert').value.trim();
+    var key = document.getElementById('tls-key').value.trim();
+
+    if (!cert || !key) {
+        setStatus('tls-msg', 'Both certificate and key PEM are required.', 'error');
+        return;
+    }
+
+    setStatus('tls-msg', 'Uploading...', '');
+    var resp = await adminFetch('/admin/api/tls/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cert: cert, key: key })
+    });
+
+    if (!resp) return;
+    var data = await resp.json();
+    if (resp.ok) {
+        setStatus('tls-msg', data.status || 'Certificates uploaded and reloaded.', 'success');
+        loadTls();
+    } else {
+        setStatus('tls-msg', data.error || 'Upload failed.', 'error');
+    }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   KV STORE
+   ════════════════════════════════════════════════════════════════ */
+
+var currentKvKey = null;
+
+async function loadKvKeys() {
+    var resp = await adminFetch('/admin/api/kv');
+    if (!resp) return;
+    try {
+        var data = await resp.json();
+        var keys = data.keys || data;
+        var listEl = document.getElementById('kv-key-list');
+
+        if (!Array.isArray(keys) || keys.length === 0) {
+            listEl.innerHTML = '<div style="padding:14px;color:var(--text-muted);font-size:12px">No keys in storage</div>';
+            return;
+        }
+
+        var html = '';
+        keys.forEach(function(k) {
+            var activeClass = (k === currentKvKey) ? ' active' : '';
+            html += '<div class="kv-key-item' + activeClass + '" onclick="selectKvKey(\'' + escapeHtml(k).replace(/'/g, "\\'") + '\')">' + escapeHtml(k) + '</div>';
+        });
+        listEl.innerHTML = html;
+    } catch (e) {
+        document.getElementById('kv-key-list').innerHTML = '<div style="padding:14px;color:#f85149;font-size:12px">Error loading keys</div>';
+    }
+}
+
+async function selectKvKey(key) {
+    currentKvKey = key;
+
+    // Update sidebar active state
+    document.querySelectorAll('.kv-key-item').forEach(function(el) {
+        el.classList.toggle('active', el.textContent === key);
+    });
+
+    // Show editor
+    document.getElementById('kv-empty-state').style.display = 'none';
+    var editArea = document.getElementById('kv-edit-area');
+    editArea.style.display = 'flex';
+    document.getElementById('kv-current-key').textContent = key;
+    document.getElementById('kv-value').value = 'Loading...';
+    setStatus('kv-msg', '', '');
+
+    var resp = await adminFetch('/admin/api/kv/' + encodeURIComponent(key));
+    if (!resp) return;
+
+    try {
+        var text = await resp.text();
+        // Try to pretty-print if it's JSON
+        try {
+            var parsed = JSON.parse(text);
+            document.getElementById('kv-value').value = JSON.stringify(parsed, null, 2);
+        } catch (e) {
+            document.getElementById('kv-value').value = text;
+        }
+    } catch (e) {
+        document.getElementById('kv-value').value = 'Error loading value';
+    }
+}
+
+async function saveKvKey() {
+    if (!currentKvKey) return;
+    var value = document.getElementById('kv-value').value;
+
+    setStatus('kv-msg', 'Saving...', '');
+    var resp = await adminFetch('/admin/api/kv/' + encodeURIComponent(currentKvKey), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: value
+    });
+
+    if (!resp) return;
+    if (resp.ok) {
+        setStatus('kv-msg', 'Saved.', 'success');
+    } else {
+        var data = await resp.json().catch(function() { return {}; });
+        setStatus('kv-msg', data.error || 'Save failed.', 'error');
+    }
+}
+
+async function deleteKvKey() {
+    if (!currentKvKey) return;
+    if (!confirm('Delete key "' + currentKvKey + '"?')) return;
+
+    var resp = await adminFetch('/admin/api/kv/' + encodeURIComponent(currentKvKey), { method: 'DELETE' });
+    if (!resp) return;
+
+    if (resp.ok) {
+        currentKvKey = null;
+        document.getElementById('kv-empty-state').style.display = 'flex';
+        document.getElementById('kv-edit-area').style.display = 'none';
+        loadKvKeys();
+    } else {
+        var data = await resp.json().catch(function() { return {}; });
+        setStatus('kv-msg', data.error || 'Delete failed.', 'error');
+    }
+}
+
+async function createKvKey() {
+    var nameInput = document.getElementById('kv-new-key');
+    var key = nameInput.value.trim();
+    if (!key) return;
+
+    // Create with empty object
+    var resp = await adminFetch('/admin/api/kv/' + encodeURIComponent(key), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}'
+    });
+
+    if (!resp) return;
+    if (resp.ok) {
+        nameInput.value = '';
+        await loadKvKeys();
+        selectKvKey(key);
+    } else {
+        var data = await resp.json().catch(function() { return {}; });
+        alert('Failed to create key: ' + (data.error || 'unknown error'));
+    }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   ENDPOINTS
+   ════════════════════════════════════════════════════════════════ */
+
+async function loadEndpoints() {
+    setStatus('endpoints-msg', '', '');
+    var resp = await adminFetch('/admin/api/endpoints');
+    if (!resp) return;
+    try {
+        var data = await resp.json();
+        document.getElementById('endpoints-editor').value = JSON.stringify(data, null, 2);
+    } catch (e) {
+        var text = await resp.text();
+        document.getElementById('endpoints-editor').value = text;
+    }
+}
+
+async function saveEndpoints() {
+    var raw = document.getElementById('endpoints-editor').value;
+    var parsed;
+    try {
+        parsed = JSON.parse(raw);
+    } catch (e) {
+        setStatus('endpoints-msg', 'Invalid JSON: ' + e.message, 'error');
+        return;
+    }
+
+    setStatus('endpoints-msg', 'Saving...', '');
+    var resp = await adminFetch('/admin/api/endpoints', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(parsed)
+    });
+
+    if (!resp) return;
+    var data = await resp.json().catch(function() { return {}; });
+    if (resp.ok) {
+        setStatus('endpoints-msg', data.status || 'Saved. Reboot required for changes to take effect.', 'success');
+    } else {
+        setStatus('endpoints-msg', data.error || 'Save failed.', 'error');
+    }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   SECURITY
+   ════════════════════════════════════════════════════════════════ */
+
+var securityConfig = null;
+
+async function loadSecurity() {
+    setStatus('security-msg', '', '');
+    var resp = await adminFetch('/admin/api/security');
+    if (!resp) return;
+
+    try {
+        securityConfig = await resp.json();
+        renderSecurityTable();
+    } catch (e) {
+        document.getElementById('security-tbody').innerHTML = '<tr><td colspan="4" style="color:#f85149">Error loading security config</td></tr>';
+    }
+}
+
+function renderSecurityTable() {
+    var tbody = document.getElementById('security-tbody');
+    var keys = (securityConfig && securityConfig.api_keys) ? securityConfig.api_keys : [];
+
+    if (keys.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="color:var(--text-muted)">No API keys configured</td></tr>';
+        return;
+    }
+
+    var html = '';
+    keys.forEach(function(k, idx) {
+        var preview = k.key_preview || k.key || '';
+        var roleBadge = k.role === 'admin'
+            ? '<span class="badge badge-admin">admin</span>'
+            : '<span class="badge badge-read">read</span>';
+
+        html += '<tr>';
+        html += '<td>' + escapeHtml(k.name || '') + '</td>';
+        html += '<td>' + roleBadge + '</td>';
+        html += '<td class="mono">' + escapeHtml(preview) + '</td>';
+        html += '<td><button class="btn btn-danger btn-sm" onclick="deleteSecurityKey(' + idx + ')">Delete</button></td>';
+        html += '</tr>';
+    });
+
+    tbody.innerHTML = html;
+}
+
+function addSecurityKey() {
+    var name = document.getElementById('sec-name').value.trim();
+    var key = document.getElementById('sec-key').value.trim();
+    var role = document.getElementById('sec-role').value;
+
+    if (!name || !key) {
+        setStatus('security-msg', 'Name and key are required.', 'error');
+        return;
+    }
+
+    if (!securityConfig) {
+        securityConfig = { api_keys: [] };
+    }
+    if (!securityConfig.api_keys) {
+        securityConfig.api_keys = [];
+    }
+
+    securityConfig.api_keys.push({ name: name, key: key, role: role });
+    renderSecurityTable();
+    saveSecurityConfig();
+
+    document.getElementById('sec-name').value = '';
+    document.getElementById('sec-key').value = '';
+    document.getElementById('sec-role').value = 'read';
+}
+
+function deleteSecurityKey(idx) {
+    if (!securityConfig || !securityConfig.api_keys) return;
+    var keyName = securityConfig.api_keys[idx] ? securityConfig.api_keys[idx].name : '';
+    if (!confirm('Delete API key "' + keyName + '"?')) return;
+
+    securityConfig.api_keys.splice(idx, 1);
+    renderSecurityTable();
+    saveSecurityConfig();
+}
+
+async function saveSecurityConfig() {
+    if (!securityConfig) return;
+
+    setStatus('security-msg', 'Saving...', '');
+    var resp = await adminFetch('/admin/api/security', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(securityConfig)
+    });
+
+    if (!resp) return;
+    var data = await resp.json().catch(function() { return {}; });
+    if (resp.ok) {
+        setStatus('security-msg', data.status || 'Saved.', 'success');
+        loadSecurity(); // Reload to get masked previews
+    } else {
+        setStatus('security-msg', data.error || 'Save failed.', 'error');
+    }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   INIT
+   ════════════════════════════════════════════════════════════════ */
+
+(function init() {
+    initTabs();
+
+    // If we already have a token, try to use it
+    if (sessionStorage.getItem('adminToken')) {
+        showApp();
+    } else {
+        showLogin();
+    }
+})();
+</script>
+</body>
+</html>

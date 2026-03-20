@@ -1,0 +1,43 @@
+═══════════════════════════════════════════════════════════════════
+  admin_keys/ — Admin Console Public Key (Compile-Time)
+═══════════════════════════════════════════════════════════════════
+
+  This directory holds the Ed25519 PUBLIC key for admin console
+  authentication. It is embedded into the unikernel binary at
+  build time via include_str!() in src/admin/auth.rs.
+
+  Files:
+    admin_pub.pem   ← Ed25519 public key (safe to commit)
+
+  The corresponding PRIVATE key (admin_priv.pem) lives in the
+  project root and is gitignored. Keep it on your workstation.
+
+─────────────────────────────────────────────────────────────────
+  HOW AUTHENTICATION WORKS
+─────────────────────────────────────────────────────────────────
+
+  1. Open https://<appliance>/admin/ in your browser
+  2. Select your admin_priv.pem file when prompted
+  3. The browser signs a server challenge using Web Crypto API
+  4. The server verifies the signature against this public key
+  5. If valid, you get a session token (1-hour expiry)
+
+  No passwords. No credentials stored on the server.
+  The private key never leaves your machine.
+
+─────────────────────────────────────────────────────────────────
+  GENERATING NEW KEYS
+─────────────────────────────────────────────────────────────────
+
+  Run the included script:
+
+    ./scripts/gen-admin-keys.sh
+
+  This generates:
+    admin_keys/admin_pub.pem  ← Rebuild to embed the new key
+    admin_priv.pem            ← Keep this safe, never commit
+
+  After generating new keys, rebuild the binary to embed the
+  new public key. The old private key will no longer work.
+
+═══════════════════════════════════════════════════════════════════

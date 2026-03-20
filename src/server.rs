@@ -4,12 +4,13 @@
 
 use std::io::{Read, Write};
 use std::net::{Shutdown, TcpListener, TcpStream};
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use std::thread;
 
 use rustls::ServerConnection;
 use rustls::StreamOwned;
 
+use crate::admin::AdminState;
 use crate::api::{self, ConfigEngine, Route};
 use crate::http::HttpRequest;
 use crate::router;
@@ -64,9 +65,10 @@ impl Drop for TlsWriter {
 
 pub fn run(
     bind_addr: &str,
-    tls_config: Arc<rustls::ServerConfig>,
+    tls_config: Arc<RwLock<Arc<rustls::ServerConfig>>>,
     storage: &'static Storage,
     security: &'static SecurityConfig,
+    admin_state: &'static AdminState,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let listener = TcpListener::bind(bind_addr)
         .map_err(|e| format!("Failed to bind {}: {}", bind_addr, e))?;
@@ -108,8 +110,14 @@ pub fn run(
                     }
                 };
 
+                // Increment request counter
+                admin_state.increment_requests();
+
+                // Read current TLS config (supports hot-reload)
+                let current_tls = tls_config.read().unwrap().clone();
+
                 // Create TLS server connection
-                let mut conn = match ServerConnection::new(Arc::clone(&tls_config)) {
+                let mut conn = match ServerConnection::new(current_tls) {
                     Ok(c) => c,
                     Err(e) => {
                         println!("[https] Worker {} TLS setup error: {}", worker_id, e);
@@ -178,6 +186,7 @@ pub fn run(
                     &config_engine,
                     storage,
                     security,
+                    admin_state,
                 );
             }
         });

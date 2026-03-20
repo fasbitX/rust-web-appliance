@@ -20,6 +20,7 @@
 #[cfg(target_os = "hermit")]
 use hermit as _;
 
+mod admin;
 mod api;
 mod http;
 mod router;
@@ -83,12 +84,30 @@ fn main() {
     };
     println!();
 
+    // ── Initialize Admin Console ──────────────────────────────────
+    println!("[init] Initializing admin console...");
+    let tls_holder = std::sync::Arc::new(std::sync::RwLock::new(tls_config));
+
+    let admin_state: &'static admin::AdminState = Box::leak(Box::new(admin::AdminState {
+        auth: admin::auth::AdminAuth::init(),
+        sessions: admin::session::SessionStore::new(),
+        log_buffer: admin::logs::LogBuffer::new(),
+        tls_config: std::sync::Arc::clone(&tls_holder),
+        boot_time: std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs(),
+        request_count: std::sync::atomic::AtomicU64::new(0),
+    }));
+    println!("[init] Admin console ready at /admin/");
+    println!();
+
     // ── Start the HTTPS server ──────────────────────────────────────
     let bind_addr = "0.0.0.0:8443";
     println!("[init] Starting HTTPS server on {}", bind_addr);
     println!();
 
-    if let Err(e) = server::run(bind_addr, tls_config, storage, security) {
+    if let Err(e) = server::run(bind_addr, tls_holder, storage, security, admin_state) {
         eprintln!("[FATAL] Server error: {}", e);
     }
 

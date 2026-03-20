@@ -1,26 +1,28 @@
 // ═══════════════════════════════════════════════════════════════════
-// Router — authentication + three-tier request dispatch
+// Router — admin console + authentication + three-tier request dispatch
 // ═══════════════════════════════════════════════════════════════════
 //
 // Requests are processed in this order:
 //
-//   0. Authentication (API key check)
-//   1. Rust routes (src/api/*.rs)     — compiled handlers, full power
-//   2. Config engine (endpoints.json) — runtime CRUD, no rebuild
-//   3. Static files (frontend/*)      — HTML/CSS/JS/images
-//   4. 404 fallback
+//   0. Admin console (/admin/*)      — own auth, bypasses API keys
+//   1. Authentication (API key check)
+//   2. Rust routes (src/api/*.rs)     — compiled handlers, full power
+//   3. Config engine (endpoints.json) — runtime CRUD, no rebuild
+//   4. Static files (frontend/*)      — HTML/CSS/JS/images
+//   5. 404 fallback
 //
 // ═══════════════════════════════════════════════════════════════════
 
 use std::io::Write;
 
+use crate::admin::{self, AdminState};
 use crate::api::{ConfigEngine, Context, Route};
 use crate::http::{self, HttpRequest};
 use crate::security::{AuthResult, SecurityConfig};
 use crate::static_files;
 use crate::storage::Storage;
 
-/// Dispatch a request through the security + three-tier pipeline.
+/// Dispatch a request through the admin + security + three-tier pipeline.
 pub fn handle_request(
     request: HttpRequest,
     mut writer: Box<dyn Write + Send>,
@@ -28,9 +30,16 @@ pub fn handle_request(
     config_engine: &Option<ConfigEngine>,
     storage: &'static Storage,
     security: &SecurityConfig,
+    admin_state: &'static AdminState,
 ) {
     let url = request.url.clone();
     let method = request.method.clone();
+
+    // ── Tier 0: Admin console (own auth, bypasses API keys) ──────
+    if url.starts_with("/admin/") || url == "/admin" {
+        admin::handle(request, writer, admin_state, storage);
+        return;
+    }
 
     // ── Authentication ───────────────────────────────────────────────
     match security.check(&request) {
